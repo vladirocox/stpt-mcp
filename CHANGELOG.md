@@ -34,7 +34,7 @@ All notable changes are documented here. The format follows
 - Upstream endpoints and schedule HTML are unofficial and may change.
 - Each process has an independent in-memory cache.
 - Live arrivals expose no upstream observation timestamp.
-- Docker/Podman was unavailable in the development environment; container
-  execution is verified only by CI when available.
+- Docker/Podman was unavailable in the development environment; the container
+  build and health check are verified by CI, not by a local run.
 
 [0.1.0]: https://github.com/vladirocox/stpt-mcp/releases/tag/v0.1.0

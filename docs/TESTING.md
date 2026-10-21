@@ -104,8 +104,9 @@ GitHub Actions runs on Python 3.11, 3.12, and 3.13:
 - `uv build`
 - a container build and `/healthz` smoke check
 
-The container job has not been run locally because Docker/Podman is unavailable
-in the development environment; CI is the verification path.
+Docker/Podman was unavailable in the development environment, so the container
+job has not been run locally. CI builds the image and checks `/healthz`; that job
+passed on the v0.1.0 publication run.
 
 ## Adding tests
 

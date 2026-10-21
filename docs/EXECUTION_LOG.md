@@ -105,10 +105,29 @@ Commands run from `/home/vlad/Documents/stpt-mcp` with Python 3.11.17 and
 - Parsed the CI workflow, Dependabot config, issue forms, and Compose file with
   PyYAML; all are syntactically valid. This is not a GitHub Actions run.
 
+## 2026-10-21 — Phase 5: publication
+
+- Created public repository <https://github.com/vladirocox/stpt-mcp>.
+- Pushed `main`; the remote branch points at the release history. Description and
+  topics were set through the GitHub CLI.
+- Initial CI run for `a69c8aa` passed all jobs:
+  <https://github.com/vladirocox/stpt-mcp/actions/runs/39587827016>
+  - test Python 3.11, 3.12, 3.13
+  - security (Bandit and pip-audit)
+  - build (wheel/sdist and wheel-content inspection)
+  - container (image build and `/healthz` check)
+- Dependabot opened three action-version PRs. All checks passed; they were
+  squash-merged, producing code/dependency commit `8665661`.
+- Final CI run for `8665661` passed all jobs, including the container job:
+  <https://github.com/vladirocox/stpt-mcp/actions/runs/39588040771>
+- The published CI container build and health check succeeded. This validates the
+  Dockerfile in CI; it does not constitute a local Docker run in this
+  environment.
+
 ## Environment limitations
 
-- Docker/Podman unavailable. Container build and runtime validation cannot be
-  performed in this environment and will be reported as unverified. CI contains
-  the container check; its result is pending the first push.
-- The container artifacts have been syntax-reviewed only. No local `docker
-  build`, `docker run`, or `docker compose config` result is claimed.
+- Docker/Podman is unavailable locally. Local `docker build`, `docker run`, and
+  `docker compose config` were not executed. The CI container job is the
+  verification path and passed.
+- The live network smoke test was not run during this release. The default suite
+  is deterministic and made no live STPT requests.

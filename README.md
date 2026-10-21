@@ -1,5 +1,7 @@
 # STPT MCP
 
+[![CI](https://github.com/vladirocox/stpt-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/vladirocox/stpt-mcp/actions/workflows/ci.yml)
+
 An unofficial, standalone [Model Context Protocol](https://modelcontextprotocol.io/)
 server for **STPT public transport in Timișoara**, Romania. It exposes live
 arrivals, date-aware schedule fallback, service alerts, vehicle positions, and an

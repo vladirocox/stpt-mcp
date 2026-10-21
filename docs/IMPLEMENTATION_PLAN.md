@@ -1,6 +1,6 @@
 # Implementation plan
 
-Status: **release candidate — final publication checks pending**
+Status: **released — v0.1.0 published**
 
 This plan is the delivery contract for `v0.1.0`. Checkboxes are updated only
 after the corresponding check has actually run. A checked item with a command
@@ -95,12 +95,11 @@ limitation · **N/A** not applicable.
 - [x] Build wheel and sdist and inspect their contents.
 - [x] Add Dockerfile and Compose example with non-root user, health check, and
   secure environment defaults.
-- [ ] Build/run the container locally. **BLOCKED:** Docker/Podman is absent;
-  syntax is reviewed and CI includes a container job, but no local container
-  build/run claim is permitted.
+- [ ] Build/run the container locally. **BLOCKED:** Docker/Podman is absent, so
+  no local container build/run claim is permitted. The CI container job passed.
 - [x] Add GitHub Actions CI for Python 3.11–3.13, lint, format, type check,
   tests/coverage, security audit, package build, and container build.
-  Remote execution is pending the first push.
+  Initial and dependency-update runs passed, including the container job.
 - [x] Add release checklist and `v0.1.0` release notes.
 
 ## 8. Final verification and publication
@@ -113,10 +112,10 @@ limitation · **N/A** not applicable.
 - [x] Build distributions and install the wheel in a fresh environment; run a
   stdio smoke test from the installed package.
 - [x] Inspect repository for secrets, generated junk, and unresolved TODOs.
-- [ ] Commit the complete deliverable.
-- [ ] Create public GitHub repository `vladirocox/stpt-mcp` if authenticated.
-- [ ] Push, verify the remote branch/commit, and inspect GitHub Actions results.
-- [ ] Write the final acceptance report with verified evidence and remaining
+- [x] Commit the complete deliverable.
+- [x] Create public GitHub repository `vladirocox/stpt-mcp` if authenticated.
+- [x] Push, verify the remote branch/commit, and inspect GitHub Actions results.
+- [x] Write the final acceptance report with verified evidence and remaining
   limitations.
 
 ## Explicit non-goals for v0.1.0

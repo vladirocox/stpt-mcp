@@ -98,9 +98,10 @@ The example binds the published port to `127.0.0.1`, drops capabilities, uses a
 read-only root filesystem, and sets `no-new-privileges`. It is a starting point,
 not a complete production platform.
 
-> **Verification status:** Docker/Podman is unavailable in the development
-> environment used for v0.1.0. The Dockerfile and Compose file are syntactically
-> reviewed and exercised by CI, but no local container build or run claim is made.
+> **Verification status:** Docker/Podman was unavailable in the development
+> environment used for v0.1.0, so no local build was run. CI builds the image and
+> checks `/healthz` successfully. The Compose file is syntax-validated, but has
+> not been launched locally.
 
 ## Reverse proxy and TLS
 
