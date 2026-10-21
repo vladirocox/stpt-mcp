@@ -23,7 +23,8 @@ offline stop/route index to MCP clients over **stdio** or **Streamable HTTP**.
 - Bundled GTFS-derived network snapshot, so stop/route discovery works offline.
 - stdio and Streamable HTTP through the official MCP Python SDK.
 - Secure HTTP defaults: loopback bind, DNS-rebinding protection, Host/Origin
-  validation, body limits, bounded sessions/concurrency, and optional bearer auth.
+  validation, body limits, bounded sessions/concurrency, optional bearer auth, and
+  built-in OAuth 2.1 sign-in for hosted clients.
 - Deterministic test suite with real MCP client tests for stdio and HTTP.
 
 ## Requirements
@@ -46,7 +47,7 @@ Or from a wheel/sdist:
 ```bash
 python -m venv .venv
 . .venv/bin/activate
-pip install dist/stpt_mcp-0.2.0-py3-none-any.whl
+pip install dist/stpt_mcp-0.3.0-py3-none-any.whl
 stpt-mcp --version
 ```
 
@@ -115,6 +116,19 @@ stpt-mcp serve --transport http
 Clients then send `Authorization: Bearer <token>`. `/healthz` stays
 unauthenticated.
 
+For hosted clients that support OAuth, set a public origin and a sign-in password
+instead of handing out a header token:
+
+```bash
+export STPT_MCP_PUBLIC_URL=https://mcp.example.com
+export STPT_MCP_OAUTH_PASSWORD='replace-with-a-long-random-password'
+stpt-mcp serve --transport http
+```
+
+Claude's custom connector can then use **Sign in now** with **Register
+automatically**. See [OAuth sign-in](docs/OAUTH.md) for the reverse-proxy paths
+and connector steps.
+
 Minimal client configuration:
 
 ```json
@@ -131,7 +145,8 @@ HTTP is bound to `127.0.0.1` by default. Binding elsewhere requires an explicit
 `STPT_MCP_ALLOWED_HOSTS` allowlist. If you expose the server beyond localhost,
 also set `STPT_MCP_AUTH_TOKEN` and terminate TLS at a reverse proxy. For a
 complete public deployment, see [Public HTTPS](docs/PUBLIC_HTTPS.md),
-[Deployment](docs/DEPLOYMENT.md), and [Security](docs/SECURITY.md).
+[OAuth sign-in](docs/OAUTH.md), [Deployment](docs/DEPLOYMENT.md), and
+[Security](docs/SECURITY.md).
 
 ## Tools
 
@@ -249,6 +264,8 @@ See [Testing](docs/TESTING.md), [Architecture](docs/ARCHITECTURE.md), and
   feed version and service range are exposed by `get_service_status`.
 - Each process has its own in-memory cache; multi-worker deployments do not
   share entries.
+- OAuth is single-owner and keeps tokens in memory; a restart requires clients
+  to sign in again. It is not a multi-user identity provider.
 - Live arrivals do not carry an upstream observation timestamp.
 
 ## License and attribution

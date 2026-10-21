@@ -21,6 +21,10 @@ DEFAULT_ALERTS_URL = "https://live.stpt.ro/proxy-alerts.php"
 DEFAULT_VEHICLES_URL = "https://live.stpt.ro/gtfs-vehicles.php"
 DEFAULT_SCHEDULE_BASE_URL = "https://smtt.ro"
 DEFAULT_USER_AGENT = f"stpt-mcp/{__version__} (+https://github.com/vladirocox/stpt-mcp)"
+DEFAULT_OAUTH_REDIRECT_URIS = (
+    "https://claude.ai/api/mcp/auth_callback",
+    "https://claude.com/api/mcp/auth_callback",
+)
 LOOPBACK_HOST_PATTERNS = ("127.0.0.1:*", "localhost:*", "[::1]:*")
 LOOPBACK_ORIGIN_PATTERNS = (
     "http://127.0.0.1:*",
@@ -91,6 +95,12 @@ class Settings:
     vehicle_stale_after_seconds: float = 120.0
 
     auth_token: str | None = field(default=None, repr=False)
+    public_url: str | None = field(default=None, repr=False)
+    oauth_password: str | None = field(default=None, repr=False)
+    oauth_allowed_redirect_uris: tuple[str, ...] = DEFAULT_OAUTH_REDIRECT_URIS
+    oauth_access_token_ttl_seconds: float = 3600.0
+    oauth_refresh_token_ttl_seconds: float = 2_592_000.0
+    oauth_login_ttl_seconds: float = 600.0
     allowed_hosts: tuple[str, ...] = ()
     allowed_origins: tuple[str, ...] = ()
     max_request_body_size: int = 1_048_576
@@ -172,6 +182,56 @@ class Settings:
             if any(char.isspace() for char in self.auth_token):
                 raise SettingsError("auth_token must not contain whitespace")
 
+        if self.oauth_password is not None:
+            if len(self.oauth_password) < 12:
+                raise SettingsError("oauth_password must be at least 12 characters")
+            if any(char.isspace() for char in self.oauth_password):
+                raise SettingsError("oauth_password must not contain whitespace")
+            if self.public_url is None:
+                raise SettingsError("oauth_password requires public_url")
+
+        if self.public_url is not None:
+            parsed_public = urlparse(self.public_url)
+            if parsed_public.scheme not in {"http", "https"} or not parsed_public.netloc:
+                raise SettingsError("public_url must be an absolute http(s) URL")
+            if parsed_public.query or parsed_public.fragment:
+                raise SettingsError("public_url must not contain a query or fragment")
+            if parsed_public.path not in {"", "/"}:
+                raise SettingsError("public_url must not contain a path")
+            if parsed_public.scheme != "https" and parsed_public.hostname not in {
+                "localhost",
+                "127.0.0.1",
+                "::1",
+            }:
+                raise SettingsError("public_url must use HTTPS")
+            if self.oauth_password is None and self.auth_token is None:
+                raise SettingsError(
+                    "public_url requires oauth_password or auth_token for OAuth sign-in"
+                )
+
+        for redirect_uri in self.oauth_allowed_redirect_uris:
+            parsed_redirect = urlparse(redirect_uri)
+            if parsed_redirect.scheme not in {"http", "https"} or not parsed_redirect.netloc:
+                raise SettingsError(
+                    "oauth_allowed_redirect_uris entries must be absolute http(s) URLs"
+                )
+            if parsed_redirect.scheme != "https" and parsed_redirect.hostname not in {
+                "localhost",
+                "127.0.0.1",
+                "::1",
+            }:
+                raise SettingsError(
+                    "oauth_allowed_redirect_uris must use HTTPS unless the host is loopback"
+                )
+
+        for name, value in (
+            ("oauth_access_token_ttl_seconds", self.oauth_access_token_ttl_seconds),
+            ("oauth_refresh_token_ttl_seconds", self.oauth_refresh_token_ttl_seconds),
+            ("oauth_login_ttl_seconds", self.oauth_login_ttl_seconds),
+        ):
+            if value <= 0:
+                raise SettingsError(f"{name} must be positive")
+
         if not self.is_loopback_host() and not self.allowed_hosts:
             raise SettingsError(
                 "binding to a non-loopback host requires STPT_MCP_ALLOWED_HOSTS "
@@ -185,6 +245,20 @@ class Settings:
             return ipaddress.ip_address(self.host).is_loopback
         except ValueError:
             return False
+
+    def oauth_enabled(self) -> bool:
+        """Return whether the built-in OAuth authorization server is configured."""
+        return self.public_url is not None
+
+    def resource_url(self) -> str | None:
+        """Return the canonical public MCP resource URL, if configured."""
+        if self.public_url is None:
+            return None
+        return self.public_url.rstrip("/") + self.path
+
+    def oauth_login_password(self) -> str | None:
+        """Return the password used by the browser login page."""
+        return self.oauth_password or self.auth_token
 
     def transport_security(self) -> TransportSecuritySettings:
         """Return SDK host/origin validation with strict, explicit defaults."""
@@ -272,6 +346,18 @@ class Settings:
             schedule_page_cache_entries=integer("STPT_MCP_SCHEDULE_PAGE_CACHE_ENTRIES", 1024),
             vehicle_stale_after_seconds=number("STPT_MCP_VEHICLE_STALE_AFTER_SECONDS", 120.0),
             auth_token=auth_token,
+            public_url=(env.get("STPT_MCP_PUBLIC_URL") or "").strip() or None,
+            oauth_password=(env.get("STPT_MCP_OAUTH_PASSWORD") or "").strip() or None,
+            oauth_allowed_redirect_uris=(
+                csv("STPT_MCP_OAUTH_ALLOWED_REDIRECT_URIS") or DEFAULT_OAUTH_REDIRECT_URIS
+            ),
+            oauth_access_token_ttl_seconds=number(
+                "STPT_MCP_OAUTH_ACCESS_TOKEN_TTL_SECONDS", 3600.0
+            ),
+            oauth_refresh_token_ttl_seconds=number(
+                "STPT_MCP_OAUTH_REFRESH_TOKEN_TTL_SECONDS", 2_592_000.0
+            ),
+            oauth_login_ttl_seconds=number("STPT_MCP_OAUTH_LOGIN_TTL_SECONDS", 600.0),
             allowed_hosts=csv("STPT_MCP_ALLOWED_HOSTS"),
             allowed_origins=csv("STPT_MCP_ALLOWED_ORIGINS"),
             max_request_body_size=integer("STPT_MCP_MAX_REQUEST_BODY_SIZE", 1_048_576),

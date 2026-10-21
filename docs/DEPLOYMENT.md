@@ -52,7 +52,7 @@ curl -fsS http://127.0.0.1:8000/healthz
 Expected:
 
 ```json
-{"status":"ok","service":"stpt-mcp","version":"0.2.0"}
+{"status":"ok","service":"stpt-mcp","version":"0.3.0"}
 ```
 
 ## Docker
@@ -63,10 +63,10 @@ The image runs as a non-root user and includes a health check.
 Build and run:
 
 ```bash
-docker build -t stpt-mcp:0.2.0 .
+docker build -t stpt-mcp:0.3.0 .
 docker run --rm -p 127.0.0.1:8000:8000 \
   -e STPT_MCP_ALLOWED_HOSTS=localhost:8000,127.0.0.1:8000 \
-  stpt-mcp:0.2.0
+  stpt-mcp:0.3.0
 ```
 
 The image sets:
@@ -84,7 +84,7 @@ Add authentication before exposing it beyond your machine:
 docker run --rm -p 127.0.0.1:8000:8000 \
   -e STPT_MCP_ALLOWED_HOSTS=localhost:8000,127.0.0.1:8000 \
   -e STPT_MCP_AUTH_TOKEN="$(stpt-mcp token)" \
-  stpt-mcp:0.2.0
+  stpt-mcp:0.3.0
 ```
 
 The `stpt-mcp token` command prints a new 256-bit URL-safe token and exits.
@@ -108,10 +108,10 @@ not a complete production platform.
 ## Reverse proxy and TLS
 
 For a complete end-to-end walkthrough with systemd, Caddy, DNS, firewall, and
-verification, see [Public HTTPS](PUBLIC_HTTPS.md).
+verification, see [Public HTTPS](PUBLIC_HTTPS.md). For hosted-client sign-in and
+dynamic client registration, see [OAuth sign-in](OAUTH.md).
 
-Put TLS and any additional authentication in front of the server. Example Caddy
-configuration:
+Terminate TLS at a reverse proxy. Example Caddy configuration:
 
 ```caddyfile
 mcp.example.com {
@@ -152,14 +152,15 @@ location / {
 }
 ```
 
-Configure the server for the public host:
+Configure the server for the public host, with either OAuth or a static token:
 
 ```bash
 STPT_MCP_TRANSPORT=http \
 STPT_MCP_HOST=127.0.0.1 \
 STPT_MCP_ALLOWED_HOSTS=mcp.example.com \
 STPT_MCP_ALLOWED_ORIGINS=https://mcp.example.com \
-STPT_MCP_AUTH_TOKEN="$(stpt-mcp token)" \
+STPT_MCP_PUBLIC_URL=https://mcp.example.com \
+STPT_MCP_OAUTH_PASSWORD='replace-with-a-long-random-password' \
 stpt-mcp serve
 ```
 
@@ -171,7 +172,7 @@ Notes:
   long read timeouts.
 - If a browser calls the endpoint, configure CORS at the proxy. The server does
   not add permissive CORS.
-- Do not put the token in query strings, logs, or source control.
+- Do not put tokens or OAuth passwords in query strings, logs, or source control.
 
 ## systemd
 

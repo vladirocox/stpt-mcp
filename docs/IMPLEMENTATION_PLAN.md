@@ -1,8 +1,9 @@
 # Implementation plan
 
-Status: **v0.2.0 deployed with public HTTPS**
+Status: **v0.3.0 OAuth implemented; deployment verification in progress**
 
-This plan is the delivery contract for `v0.1.0` and the `v0.2.0` additions.
+This plan is the delivery contract for `v0.1.0`, `v0.2.0`, and the `v0.3.0`
+OAuth addition.
 Checkboxes are updated only
 after the corresponding check has actually run. A checked item with a command
 means the command passed; environmental limitations are recorded separately.
@@ -138,6 +139,23 @@ limitation · **N/A** not applicable.
 - [x] Verify service restart and boot enablement.
 - [x] Leave a removal note in the service account's home directory with removal
   and firewall/router rollback commands.
+
+## 10. OAuth for hosted clients (v0.3.0)
+
+- [x] Implement OAuth 2.1 discovery metadata, dynamic client registration,
+  authorization-code + PKCE, refresh tokens, and revocation on the Streamable
+  HTTP app.
+- [x] Add a single-owner browser login page with expiring, one-time login
+  requests and a redirect-URI allowlist.
+- [x] Keep static bearer authentication available alongside OAuth.
+- [x] Add configuration for public origin, OAuth password, redirect allowlist, and
+  token lifetimes.
+- [x] Add discovery, registration, login, token, refresh, static-token, and
+  rejection tests.
+- [x] Document the Caddy OAuth routes, Claude custom-connector steps, and
+  troubleshooting in `docs/OAUTH.md` and `docs/PUBLIC_HTTPS.md`.
+- [ ] Deploy v0.3.0 and verify the public OAuth flow end to end.
+- [ ] Publish the v0.3.0 release and verify installation from the release asset.
 
 ## Explicit non-goals for v0.1.0
 

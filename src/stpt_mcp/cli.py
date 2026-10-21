@@ -96,10 +96,14 @@ def main() -> None:
         build_server(settings).run("stdio")
         return
 
-    if not settings.is_loopback_host() and settings.auth_token is None:
+    if (
+        not settings.is_loopback_host()
+        and settings.auth_token is None
+        and not settings.oauth_enabled()
+    ):
         logger.warning(
-            "HTTP is bound to %s without STPT_MCP_AUTH_TOKEN; put authentication "
-            "in front of this service",
+            "HTTP is bound to %s without STPT_MCP_AUTH_TOKEN or OAuth; put "
+            "authentication in front of this service",
             settings.host,
         )
     logger.info(

@@ -16,6 +16,8 @@ def test_defaults_are_local_and_safe() -> None:
     assert settings.host == "127.0.0.1"
     assert settings.is_loopback_host()
     assert settings.auth_token is None
+    assert settings.oauth_enabled() is False
+    assert settings.resource_url() is None
     security = settings.transport_security()
     assert security.enable_dns_rebinding_protection is True
     assert "127.0.0.1:*" in security.allowed_hosts
@@ -39,6 +41,12 @@ def test_from_env_parses_values() -> None:
             "STPT_MCP_ARRIVAL_TTL_SECONDS": "5",
             "STPT_MCP_ARRIVAL_STALE_TTL_SECONDS": "50",
             "STPT_MCP_AUTH_TOKEN": "a" * 16,
+            "STPT_MCP_PUBLIC_URL": "https://mcp.example.com",
+            "STPT_MCP_OAUTH_PASSWORD": "oauth-password-123",
+            "STPT_MCP_OAUTH_ALLOWED_REDIRECT_URIS": (
+                "https://claude.ai/api/mcp/auth_callback,http://localhost:33418/callback"
+            ),
+            "STPT_MCP_OAUTH_ACCESS_TOKEN_TTL_SECONDS": "120",
             "STPT_MCP_ALLOWED_HOSTS": "mcp.example.com, localhost:*",
             "STPT_MCP_ALLOWED_ORIGINS": "https://app.example.com",
         }
@@ -51,6 +59,14 @@ def test_from_env_parses_values() -> None:
     assert settings.allowed_hosts == ("mcp.example.com", "localhost:*")
     assert settings.allowed_origins == ("https://app.example.com",)
     assert settings.auth_token == "a" * 16
+    assert settings.oauth_enabled() is True
+    assert settings.resource_url() == "https://mcp.example.com/transit"
+    assert settings.oauth_login_password() == "oauth-password-123"
+    assert settings.oauth_allowed_redirect_uris == (
+        "https://claude.ai/api/mcp/auth_callback",
+        "http://localhost:33418/callback",
+    )
+    assert settings.oauth_access_token_ttl_seconds == 120
     assert "mcp.example.com" in settings.transport_security().allowed_hosts
 
 
@@ -80,6 +96,25 @@ def test_from_env_ignores_blank_values() -> None:
         ({"upstream_concurrency": "1000"}, "between"),
         ({"auth_token": "short"}, "at least 16"),
         ({"auth_token": "has whitespace here"}, "whitespace"),
+        ({"oauth_password": "short"}, "at least 12"),
+        ({"oauth_password": "valid-password-123"}, "requires public_url"),
+        (
+            {
+                "public_url": "https://mcp.example.com",
+                "oauth_password": "has whitespace here",
+            },
+            "whitespace",
+        ),
+        ({"public_url": "http://mcp.example.com", "auth_token": "a" * 16}, "HTTPS"),
+        (
+            {"public_url": "https://mcp.example.com/path", "auth_token": "a" * 16},
+            "must not contain a path",
+        ),
+        ({"public_url": "https://mcp.example.com"}, "requires oauth_password"),
+        (
+            {"oauth_allowed_redirect_uris": "http://evil.example/callback"},
+            "HTTPS",
+        ),
     ],
 )
 def test_invalid_environment_is_rejected(
@@ -100,6 +135,16 @@ def test_invalid_direct_settings() -> None:
         Settings(timezone="Nowhere/Nothing")
     with pytest.raises(SettingsError, match="live_url"):
         Settings(live_url="file:///etc/passwd")
+
+
+def test_oauth_login_password_falls_back_to_static_token() -> None:
+    settings = Settings(
+        public_url="https://mcp.example.com",
+        auth_token="test-token-1234567890",  # noqa: S106 - test fixture
+        allowed_hosts=("mcp.example.com",),
+    )
+    assert settings.oauth_enabled() is True
+    assert settings.oauth_login_password() == settings.auth_token
 
 
 def test_non_loopback_bind_requires_allowed_hosts() -> None:

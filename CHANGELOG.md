@@ -4,6 +4,19 @@ All notable changes are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [0.3.0] - 2026-10-21
+
+### Added
+
+- Built-in OAuth 2.1 authorization server for the Streamable HTTP endpoint,
+  including RFC 8414/RFC 9728 discovery metadata, dynamic client registration,
+  authorization-code + PKCE, refresh tokens, revocation, and a browser sign-in
+  page.
+- `STPT_MCP_PUBLIC_URL`, `STPT_MCP_OAUTH_PASSWORD`, redirect allowlist, and token
+  lifetime settings.
+- Claude custom-connector instructions and OAuth reverse-proxy routes.
+- Static bearer tokens remain accepted when OAuth is enabled.
+
 ## [0.2.0] - 2026-10-21
 
 ### Added
@@ -48,5 +61,6 @@ All notable changes are documented here. The format follows
 - Docker/Podman was unavailable in the development environment; the container
   build and health check are verified by CI, not by a local run.
 
+[0.3.0]: https://github.com/vladirocox/stpt-mcp/releases/tag/v0.3.0
 [0.2.0]: https://github.com/vladirocox/stpt-mcp/releases/tag/v0.2.0
 [0.1.0]: https://github.com/vladirocox/stpt-mcp/releases/tag/v0.1.0
