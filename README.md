@@ -47,7 +47,7 @@ Or from a wheel/sdist:
 ```bash
 python -m venv .venv
 . .venv/bin/activate
-pip install dist/stpt_mcp-0.3.0-py3-none-any.whl
+pip install dist/stpt_mcp-0.3.1-py3-none-any.whl
 stpt-mcp --version
 ```
 
