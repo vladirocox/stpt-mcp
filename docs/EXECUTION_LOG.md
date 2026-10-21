@@ -233,3 +233,42 @@ Commands run from the project working directory with Python 3.11.17 and
   verification path and passed.
 - The opt-in live network smoke test passed once after publication. It is not part
   of CI; the default suite is deterministic and makes no live STPT requests.
+
+## 2026-10-21 — v0.3.0: OAuth 2.1 for hosted clients
+
+- Added `src/stpt_mcp/oauth.py` using the MCP SDK authorization-server
+  interfaces: RFC 8414 discovery metadata, RFC 9728 protected-resource metadata,
+  dynamic client registration, authorization-code + PKCE (`S256`), refresh
+  tokens, revocation, and a single-owner browser sign-in page.
+- Added bounded in-memory stores for clients, authorization codes, login
+  requests, access tokens, and refresh tokens. Tokens are opaque random values
+  and are lost on restart.
+- Added `STPT_MCP_PUBLIC_URL`, `STPT_MCP_OAUTH_PASSWORD`, redirect allowlist, and
+  token-lifetime settings. Static bearer tokens remain valid when OAuth is
+  enabled.
+- Restricted dynamic registration to the configured redirect allowlist plus
+  loopback HTTP callbacks, and advertised the public-client `none` token method
+  in discovery metadata.
+- Updated the MCP server and HTTP app to use the SDK bearer middleware when OAuth
+  is enabled, with OAuth discovery, login, token, and revocation routes.
+- Added OAuth tests for discovery, registration, login, code exchange, refresh,
+  static-token compatibility, wrong passwords, untrusted redirect URIs, and
+  resource mismatch.
+- Verification for v0.3.0: Ruff format/lint passed, strict MyPy passed, pytest
+  reported **211 passed, 1 deselected** at **91.30%** coverage, Bandit reported
+  no issues, pip-audit found no known vulnerabilities, and `uv build` produced
+  the `stpt_mcp-0.3.0` wheel and sdist.
+- Deployed v0.3.0 on the private host, added
+  `STPT_MCP_PUBLIC_URL=https://vladiro.go.ro` to the root-only environment file,
+  and added the OAuth path routes to the existing Caddy site on port 443.
+- Verified through the public HTTPS endpoint:
+  - discovery metadata returns `200` with issuer `https://vladiro.go.ro`, DCR,
+    PKCE, refresh tokens, and public-client auth methods;
+  - protected-resource metadata returns `200` and identifies
+    `https://vladiro.go.ro/mcp`;
+  - unauthenticated MCP returns `401` with a `resource_metadata` challenge;
+  - DCR, browser login, authorization-code exchange, refresh-token issuance, and
+    an authenticated MCP `initialize` all succeeded;
+  - the static bearer token still returns `200`, and a wrong token returns `401`;
+  - the existing root redirect still returns `301` to its configured
+    destination.
