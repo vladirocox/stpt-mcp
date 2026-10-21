@@ -1,9 +1,9 @@
 # Implementation plan
 
-Status: **v0.3.0 deployed with public HTTPS and OAuth**
+Status: **v0.3.1 deployed with public HTTPS and OAuth**
 
-This plan is the delivery contract for `v0.1.0`, `v0.2.0`, and the `v0.3.0`
-OAuth addition.
+This plan is the delivery contract for `v0.1.0`, `v0.2.0`, `v0.3.0`, and
+the `v0.3.1` maintenance release.
 Checkboxes are updated only
 after the corresponding check has actually run. A checked item with a command
 means the command passed; environmental limitations are recorded separately.
@@ -156,6 +156,16 @@ limitation · **N/A** not applicable.
   troubleshooting in `docs/OAUTH.md` and `docs/PUBLIC_HTTPS.md`.
 - [x] Deploy v0.3.0 and verify the public OAuth flow end to end.
 - [x] Publish the v0.3.0 release and verify installation from the release asset.
+
+## 11. Maintenance (v0.3.1)
+
+- [x] Merge the Dependabot update for `mypy` 2.4.0.
+- [x] Re-run Ruff, strict MyPy, the test suite with coverage, Bandit,
+  pip-audit, and the package build.
+- [x] Keep the OAuth per-process token-state limitation in the public docs.
+- [x] Publish v0.3.1 and verify the release asset installation.
+- [x] Deploy v0.3.1 and verify public OAuth metadata, token exchange, the static
+  bearer token, and the seven MCP tools on ports 443 and 9000.
 
 ## Explicit non-goals for v0.1.0
 
