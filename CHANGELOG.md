@@ -4,6 +4,21 @@ All notable changes are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [0.3.3] - 2026-10-21
+
+### Added
+
+- Added a chat screenshot showing the MCP tools answering an arrival question,
+  and a "Related projects" section that points to the Home Assistant
+  integration and the Inky pHAT dashboard.
+
+### Changed
+
+- Bumped the package version to 0.3.3 and refreshed the documented release
+  artifact references.
+- Included the `assets/` directory in the source distribution so the README
+  image resolves from the published sdist.
+
 ## [0.3.2] - 2026-10-21
 
 ### Changed
@@ -85,6 +100,7 @@ All notable changes are documented here. The format follows
 - Docker/Podman was unavailable in the development environment; the container
   build and health check are verified by CI, not by a local run.
 
+[0.3.3]: https://github.com/vladirocox/stpt-mcp/releases/tag/v0.3.3
 [0.3.2]: https://github.com/vladirocox/stpt-mcp/releases/tag/v0.3.2
 [0.3.1]: https://github.com/vladirocox/stpt-mcp/releases/tag/v0.3.1
 [0.3.0]: https://github.com/vladirocox/stpt-mcp/releases/tag/v0.3.0
