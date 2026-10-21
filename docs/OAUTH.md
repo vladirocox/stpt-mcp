@@ -177,6 +177,8 @@ page.
   restarting with a new value.
 - The OAuth layer authenticates one owner. It does not provide per-user scopes,
   audit logs, or revocation across multiple server instances.
+- Token state is per process. Run one HTTP worker or use sticky sessions; a token
+  issued by one worker is not valid on another worker.
 
 ## Troubleshooting
 
