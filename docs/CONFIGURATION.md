@@ -41,7 +41,7 @@ All must be absolute `http(s)` URLs. Tests point these at loopback servers.
 
 | Variable | Default | Notes |
 | --- | --- | --- |
-| `STPT_MCP_AUTH_TOKEN` | unset | Static bearer token on every route except `/healthz`; 16+ chars, no whitespace. Generate one with `stpt-mcp token`. |
+| `STPT_MCP_AUTH_TOKEN` | unset | Static bearer token for `/mcp`; 16+ chars, no whitespace. Also the OAuth login password fallback. Generate one with `stpt-mcp token`. |
 | `STPT_MCP_ALLOWED_HOSTS` | loopback patterns | Comma-separated Host allowlist. Required for non-loopback binds. |
 | `STPT_MCP_ALLOWED_ORIGINS` | loopback origins | Comma-separated browser Origin allowlist. |
 | `STPT_MCP_MAX_REQUEST_BODY_SIZE` | `1048576` | Bytes; 1 KiB–100 MB. |
@@ -53,6 +53,36 @@ Host and origin patterns follow the MCP SDK syntax, for example
 `mcp.example.com`, `mcp.example.com:443`, or `*.example.com:443`. Include the port
 that clients use. For a browser, also configure CORS at the deployment edge; this
 server does not add permissive CORS.
+
+## OAuth sign-in
+
+Set `STPT_MCP_PUBLIC_URL` to enable the built-in OAuth 2.1 authorization server.
+It must be an origin such as `https://mcp.example.com`, with no path, query, or
+fragment. The protected resource URL is derived from this origin and
+`STPT_MCP_PATH`.
+
+| Variable | Default | Notes |
+| --- | --- | --- |
+| `STPT_MCP_PUBLIC_URL` | unset | Public HTTPS origin. Enables discovery, DCR, PKCE, and token endpoints. |
+| `STPT_MCP_OAUTH_PASSWORD` | unset | Browser sign-in password; 12+ chars, no whitespace. If unset, `STPT_MCP_AUTH_TOKEN` is used. |
+| `STPT_MCP_OAUTH_ALLOWED_REDIRECT_URIS` | Claude web callbacks | Comma-separated exact redirect URIs. Loopback HTTP redirects are always allowed. |
+| `STPT_MCP_OAUTH_ACCESS_TOKEN_TTL_SECONDS` | `3600` | Access-token lifetime. |
+| `STPT_MCP_OAUTH_REFRESH_TOKEN_TTL_SECONDS` | `2592000` | Refresh-token lifetime. |
+| `STPT_MCP_OAUTH_LOGIN_TTL_SECONDS` | `600` | Browser sign-in-request lifetime. |
+
+The default redirect allowlist is
+`https://claude.ai/api/mcp/auth_callback` and
+`https://claude.com/api/mcp/auth_callback`. Dynamic registration rejects other
+non-loopback redirect URIs.
+
+The OAuth paths must reach the MCP process:
+`/.well-known/oauth-authorization-server`,
+`/.well-known/oauth-protected-resource/mcp`, `/authorize`, `/token`, `/register`,
+`/revoke`, and `/oauth/login`. See [OAuth sign-in](OAUTH.md) for the Caddy
+configuration and Claude connector steps.
+
+The static bearer token remains valid when OAuth is enabled. This allows existing
+header-based clients to keep working while hosted clients use sign-in.
 
 ## Upstream behavior
 
@@ -95,11 +125,12 @@ multi-client local deployment.
 STPT_MCP_TRANSPORT=http \
 STPT_MCP_HOST=0.0.0.0 \
 STPT_MCP_ALLOWED_HOSTS=mcp.example.com \
-STPT_MCP_AUTH_TOKEN="$(stpt-mcp token)" \
+STPT_MCP_PUBLIC_URL=https://mcp.example.com \
+STPT_MCP_OAUTH_PASSWORD='replace-with-a-long-random-password' \
 STPT_MCP_LOG_LEVEL=INFO \
 stpt-mcp serve
 ```
 
-Put TLS and any additional authentication at a reverse proxy. See
-[Public HTTPS](PUBLIC_HTTPS.md), [Deployment](DEPLOYMENT.md), and
+Terminate TLS at a reverse proxy. See [Public HTTPS](PUBLIC_HTTPS.md),
+[OAuth sign-in](OAUTH.md), [Deployment](DEPLOYMENT.md), and
 [Security](SECURITY.md).

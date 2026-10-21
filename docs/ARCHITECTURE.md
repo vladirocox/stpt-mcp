@@ -141,7 +141,9 @@ The HTTP app uses the SDK's Streamable HTTP transport in stateless mode, with:
 - DNS-rebinding protection and Host/Origin validation;
 - a request body size limit;
 - bounded sessions and an ASGI concurrency limiter;
-- optional bearer authentication;
+- optional static bearer authentication;
+- optional built-in OAuth 2.1 authorization-server routes for hosted clients,
+  with DCR, PKCE, refresh tokens, and a single-owner browser login page;
 - an unauthenticated `/healthz` liveness endpoint.
 
 The CLI defaults to stdio. HTTP requires `--transport http` or

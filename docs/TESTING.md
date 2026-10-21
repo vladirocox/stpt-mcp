@@ -87,8 +87,8 @@ upstream correctness.
 ## Coverage
 
 Coverage is branch-aware, measures `stpt_mcp`, and fails below **85%**. At the
-v0.2.0 verification run the suite had **196 tests passing** and **93.02%** total
-coverage. The exact numbers are recorded in the execution log.
+v0.3.0 verification run the suite had **211 tests passing, 1 deselected** and
+**91.30%** total coverage. The exact numbers are recorded in the execution log.
 
 Coverage is not a substitute for the concurrency and real-client tests, which
 assert behavior rather than line execution.

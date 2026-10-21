@@ -17,18 +17,22 @@ operational data.
 The CLI logs to stderr. A normal local HTTP start looks like:
 
 ```text
-... INFO stpt_mcp.cli: starting stpt-mcp 0.1.0 over streamable HTTP on 127.0.0.1:8000/mcp
+... INFO stpt_mcp.cli: starting stpt-mcp 0.3.0 over streamable HTTP on 127.0.0.1:8000/mcp
 ```
 
-If HTTP binds to a non-loopback address without a token, the process logs a
-warning. Put authentication and TLS in front of that listener.
+If HTTP binds to a non-loopback address without a static token or OAuth, the
+process logs a warning. Put authentication and TLS in front of that listener.
 
 Startup fails for invalid settings, including:
 
 - malformed URLs or timezone;
 - a stale window shorter than its TTL;
 - a non-loopback bind without `STPT_MCP_ALLOWED_HOSTS`;
-- an auth token shorter than 16 characters or containing whitespace.
+- an auth token shorter than 16 characters or containing whitespace;
+- an OAuth password shorter than 12 characters or containing whitespace, or an
+  OAuth password without `STPT_MCP_PUBLIC_URL`;
+- a public URL that is not an origin, or does not use HTTPS on a non-loopback
+  host.
 
 ## Inspecting status
 

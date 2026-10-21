@@ -10,6 +10,7 @@ from starlette.responses import JSONResponse
 from starlette.types import ASGIApp, Receive, Scope, Send
 
 from stpt_mcp.config import Settings
+from stpt_mcp.oauth import OAuthMetadataMiddleware
 from stpt_mcp.server import build_server
 from stpt_mcp.service import TransitService
 
@@ -82,7 +83,9 @@ def create_http_app(settings: Settings, *, service: TransitService | None = None
         host=settings.host,
     )
     wrapped: ASGIApp = app
-    if settings.auth_token is not None:
+    if settings.oauth_enabled():
+        wrapped = OAuthMetadataMiddleware(wrapped)
+    elif settings.auth_token is not None:
         wrapped = BearerAuthMiddleware(
             wrapped,
             settings.auth_token,

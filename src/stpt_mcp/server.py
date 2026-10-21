@@ -25,6 +25,7 @@ from stpt_mcp.models import (
     VehicleMode,
     VehiclesResult,
 )
+from stpt_mcp.oauth import build_auth_settings, build_oauth_provider
 from stpt_mcp.service import TransitService
 
 SERVER_INSTRUCTIONS = """\
@@ -72,6 +73,8 @@ def build_server(
         finally:
             await transit.close()
 
+    oauth_provider = build_oauth_provider(settings)
+    auth_settings = build_auth_settings(settings) if oauth_provider is not None else None
     mcp: MCPServer[AppContext] = MCPServer(
         name="stpt-mcp",
         title="STPT Timișoara Transit",
@@ -82,6 +85,8 @@ def build_server(
             Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"], settings.log_level
         ),
         lifespan=lifespan,
+        auth=auth_settings,
+        auth_server_provider=oauth_provider,
     )
 
     @mcp.tool(
@@ -252,5 +257,14 @@ def build_server(
             {"status": "ok", "service": "stpt-mcp", "version": __version__},
             status_code=200,
         )
+
+    if oauth_provider is not None:
+        provider = oauth_provider
+
+        @mcp.custom_route(  # type: ignore[untyped-decorator]
+            "/oauth/login", methods=["GET", "POST"], include_in_schema=False
+        )
+        async def oauth_login(request: Request) -> Response:
+            return await provider.handle_login(request)
 
     return mcp
