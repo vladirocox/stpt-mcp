@@ -208,7 +208,8 @@ Commands run from the project working directory with Python 3.11.17 and
 - Enabled `main` branch protection through the GitHub API:
   force pushes and branch deletion are blocked, administrators are subject to
   the rules, and pull requests require the Python 3.11/3.12/3.13 test jobs,
-  `security`, and `build` checks. Direct pushes by maintainers remain possible.
+  `security`, and `build` checks. Direct pushes to `main` are rejected; changes
+  go through a pull request.
 - Audited the current tree and all commits for bearer tokens, passwords, private
   keys, `.env` files, and obvious cloud/API credentials; none were found.
 - Removed unnecessary internal deployment metadata (private hostname, LAN
@@ -221,6 +222,9 @@ Commands run from the project working directory with Python 3.11.17 and
 - Added copy-paste examples under `deploy/` and an authenticated
   `examples/https-client.json`; linked them from the README and deployment
   documentation. Added `deploy/` to the source distribution.
+- Exposed `/mcp` on standard HTTPS port 443 through the reverse proxy for hosted
+  clients that do not connect to non-standard ports. The existing port 9000
+  endpoint remains available.
 
 ## Environment limitations
 
