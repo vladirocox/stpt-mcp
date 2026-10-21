@@ -44,7 +44,7 @@ stpt-mcp = "stpt_mcp.cli:main"
 [dependency-groups]
 dev = [
   "bandit[toml]>=1.8.6,<2",
-  "mypy>=1.17,<2",
+  "mypy>=1.17,<3",
   "pip-audit>=2.9,<3",
   "pytest>=8.4,<10",
   "pytest-asyncio>=1.1,<2",
