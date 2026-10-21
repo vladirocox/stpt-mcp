@@ -272,3 +272,13 @@ Commands run from the project working directory with Python 3.11.17 and
   - the static bearer token still returns `200`, and a wrong token returns `401`;
   - the existing root redirect still returns `301` to its configured
     destination.
+
+## 2026-10-21 — v0.3.0 release and installation check
+
+- Published `v0.3.0` with the wheel and source distribution assets at
+  <https://github.com/vladirocox/stpt-mcp/releases/tag/v0.3.0>.
+- Verified the release asset installs in a fresh Python 3.11 virtual
+  environment and reports `stpt-mcp 0.3.0`.
+- Confirmed the deployed public endpoint still accepts the legacy static bearer
+  token on both `https://vladiro.go.ro/mcp` and
+  `https://vladiro.go.ro:9000/mcp` while OAuth is enabled.
