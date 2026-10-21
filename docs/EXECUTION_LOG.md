@@ -93,6 +93,18 @@ Commands run from `/home/vlad/Documents/stpt-mcp` with Python 3.11.17 and
 - CI adds Python 3.11–3.13 formatting, lint, typing, tests/coverage, Bandit,
   pip-audit, package build, and a container health check.
 
+## 2026-10-21 — Clean-checkout verification
+
+- Committed the deliverable as `36cea50`.
+- Cloned the repository to `/tmp/opencode/stpt-clean`; `git log` confirmed the
+  same commit and `uv sync --all-groups --locked` created a fresh environment.
+- In that clone: Ruff format/lint passed, strict MyPy passed (43 files), pytest
+  passed (**194 passed, 1 deselected**) at **92.96%** coverage, Bandit reported
+  0 issues, pip-audit reported no known vulnerabilities, and `uv build`
+  succeeded.
+- Parsed the CI workflow, Dependabot config, issue forms, and Compose file with
+  PyYAML; all are syntactically valid. This is not a GitHub Actions run.
+
 ## Environment limitations
 
 - Docker/Podman unavailable. Container build and runtime validation cannot be

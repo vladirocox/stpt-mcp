@@ -105,7 +105,7 @@ limitation · **N/A** not applicable.
 
 ## 8. Final verification and publication
 
-- [ ] Run `uv sync --all-groups` from a clean checkout. Pending the final commit.
+- [x] Run `uv sync --all-groups` from a clean checkout.
 - [x] Run Ruff format check and lint.
 - [x] Run strict MyPy.
 - [x] Run full pytest suite with coverage and record actual counts/percentage.
