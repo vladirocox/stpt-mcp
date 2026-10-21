@@ -319,6 +319,10 @@ Commands run from the project working directory with Python 3.11.17 and
     `https://vladiro.go.ro/mcp` and `https://vladiro.go.ro:9000/mcp`;
   - the legacy health endpoint reports `0.3.1`, and the root site still returns
     `301` to its configured destination.
+- Re-ran the opt-in live smoke test with
+  `STPT_MCP_RUN_NETWORK_TESTS=1 uv run pytest -m network`; it passed
+  (**1 passed, 211 deselected**) against the live STPT live, alerts, and
+  vehicles endpoints.
 - The restart invalidated the in-memory OAuth tokens as documented; the static
   bearer token remains valid. Existing OAuth clients must sign in again.
 - The deployment host could not reach its own public hostname because of NAT
