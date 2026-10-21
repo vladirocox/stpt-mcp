@@ -58,8 +58,10 @@ uv run stpt-mcp token
 - `src/stpt_mcp/server.py` — MCP tool definitions and lifespan.
 - `src/stpt_mcp/http_app.py` — HTTP transport, security and health endpoint.
 - `src/stpt_mcp/data/network.json` — offline GTFS-derived network snapshot.
+- `deploy/` — copy-paste Caddy, systemd, and environment examples.
 - `docs/` — architecture, data sources, tools, configuration, testing,
-  deployment, operations, security, decisions, plan, and execution log.
+  deployment, public HTTPS, operations, security, decisions, plan, and execution
+  log.
 - `tests/` — unit, integration, protocol, end-to-end, and opt-in network tests.
 - `Dockerfile`, `compose.yaml`, `.github/workflows/ci.yml` — deployment and CI.
 - `scripts/generate_network_snapshot.py` — manual snapshot refresh; never in CI.

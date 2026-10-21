@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "stpt": {
+      "url": "https://mcp.example.com/mcp",
+      "headers": {
+        "Authorization": "Bearer replace-with-your-token"
+      }
+    }
+  }
+}

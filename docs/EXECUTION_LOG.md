@@ -5,8 +5,8 @@ Chronological evidence for the implementation. Times are local
 
 ## 2026-10-21 — Phase 0: discovery
 
-- Working directory `/home/vlad/Documents/stpt-mcp` confirmed empty and outside
-  the existing Home Assistant integration repository.
+- The project working directory was confirmed empty and outside the existing
+  Home Assistant integration repository.
 - Source cloned read-only to `/tmp/opencode/stpt-ha-integration`; its working
   tree was not modified.
 - Verified `uv 0.13.4`, Python `3.13.5`, Node `22`, Git `2.47.3`, GitHub CLI
@@ -27,7 +27,7 @@ Chronological evidence for the implementation. Times are local
 
 ## 2026-10-21 — Phase 1: foundation
 
-- Initialized independent Git repository in `/home/vlad/Documents/stpt-mcp`.
+- Initialized an independent Git repository.
 - Added `AGENTS.md`, `LICENSE`, `NOTICE`, `pyproject.toml`, and this plan/log.
 - Chose Python 3.11+, `mcp==2.3.x`, Pydantic 2, HTTPX, BeautifulSoup, and
   Uvicorn. Decisions recorded in ADRs.
@@ -58,7 +58,7 @@ Chronological evidence for the implementation. Times are local
 
 ## 2026-10-21 — Phase 3: verification
 
-Commands run from `/home/vlad/Documents/stpt-mcp` with Python 3.11.17 and
+Commands run from the project working directory with Python 3.11.17 and
 `uv 0.13.4`:
 
 - `uv run ruff format --check .` — 67 files already formatted.
@@ -140,20 +140,19 @@ Commands run from `/home/vlad/Documents/stpt-mcp` with Python 3.11.17 and
   0 issues, pip-audit found no known vulnerabilities, and `uv build` produced
   `stpt_mcp-0.2.0` wheel and sdist.
 
-## 2026-10-21 — deployment to debian-hp (v0.2.0)
+## 2026-10-21 — deployment to a private host (v0.2.0)
 
 - CI for commit `4f99792` passed all jobs: Python 3.11, 3.12, 3.13, security,
   build, and container (run `39590112771`).
-- Installed the `main` checkout in `/opt/stpt-mcp` on `debian-hp` under Python
-  3.13.5 with a dedicated `.venv`.
-- Created `stpt-mcp.service` running as `vladirocox`, enabled at boot. It binds
-  `0.0.0.0:9000`, uses `STPT_MCP_ALLOWED_HOSTS` for `vladiro.go.ro`,
-  `188.27.183.212`, the LAN addresses, `localhost`, and `127.0.0.1`, and reads
-  the bearer token from root-only `/etc/stpt-mcp.env`.
+- Installed the `main` checkout in `/opt/stpt-mcp` on the deployment host under
+  Python 3.13.5 with a dedicated `.venv`.
+- Created `stpt-mcp.service` running as a dedicated service account, enabled at
+  boot. It bound `0.0.0.0:9000`, used an explicit `STPT_MCP_ALLOWED_HOSTS`
+  list, and read the bearer token from a root-only environment file.
 - Opened TCP 9000 in `ufw`; the existing router forwarding for port 9000 was
   confirmed by reaching the service through the public hostname.
 - Verification:
-  - `http://vladiro.go.ro:9000/healthz` returned HTTP 200
+  - The public `/healthz` endpoint returned HTTP 200
     `{"status":"ok","service":"stpt-mcp","version":"0.2.0"}`; the same request
     also succeeded through an external reader.
   - MCP `initialize` without a token returned 401; a wrong token returned 401;
@@ -164,47 +163,64 @@ Commands run from `/home/vlad/Documents/stpt-mcp` with Python 3.11.17 and
     with feed `4.28`.
   - A service restart preserved the token and authentication behavior; the
     unit is `enabled` and `active`.
-- Added `/home/vladirocox/STPT_MCP_REMOVAL.md` with stop/disable, unit removal,
-  token removal, installation deletion, `ufw` rollback, router-forwarding
-  rollback, and verification commands.
+- Added a removal note in the service account's home directory with
+  stop/disable, unit removal, token removal, installation deletion, `ufw`
+  rollback, router-forwarding rollback, and verification commands.
 - The endpoint used plain HTTP on port 9000. The bearer token should be treated
   as sensitive; TLS via a reverse proxy is recommended if the endpoint is kept
   public long-term. **Superseded by the HTTPS deployment below.**
 
 ## 2026-10-21 — HTTPS for the public MCP endpoint
 
-- The host already runs a Caddy container on ports 80/443 with a Let's Encrypt
-  certificate for `vladiro.go.ro` (`/opt/homeassistant/ssl/fullchain.pem` and
-  `privkey.pem`).
-- Backed up the Caddy config, Caddy Compose file, and systemd unit with suffix
-  `20261021-174339` before changing them.
-- Moved the MCP process to internal `0.0.0.0:19000` so Caddy could own the
+- The deployment host already runs Caddy on ports 80/443 with a Let's Encrypt
+  certificate for the public hostname.
+- Backed up the Caddy config, Caddy Compose file, and systemd unit before
+  changing them.
+- Moved the MCP process to an internal private port so Caddy could own the
   public port 9000. Updated `STPT_MCP_ALLOWED_HOSTS` and
-  `STPT_MCP_ALLOWED_ORIGINS` for `vladiro.go.ro:9000` and local checks.
-- Added a Caddy site block for `https://vladiro.go.ro:9000` using the existing
-  certificate, reverse-proxying to `172.18.0.1:19000` with
-  `flush_interval -1` for Streamable HTTP streaming.
-- Added `9000:9000` to the Caddy Compose port mappings and recreated the
+  `STPT_MCP_ALLOWED_ORIGINS` for the public hostname and local checks.
+- Added a Caddy site block for the public HTTPS endpoint using the existing
+  certificate, reverse-proxying to the internal port with `flush_interval -1`
+  for Streamable HTTP streaming.
+- Added the public port to the Caddy Compose port mappings and recreated the
   container after `caddy validate` passed.
 - Verification:
-  - `https://vladiro.go.ro:9000/healthz` returned HTTP 200 with
+  - The public HTTPS `/healthz` endpoint returned HTTP 200 with
     `{"status":"ok","service":"stpt-mcp","version":"0.2.0"}` through the public
     hostname and through an external reader.
-  - The certificate is the existing Let's Encrypt certificate for
-    `vladiro.go.ro`, valid through 2026-12-21. Caddy loads it explicitly and
-    does not renew it, so the existing renewal process must be confirmed before
-    that date.
-  - Plain HTTP to port 9000 returns 400; the endpoint is HTTPS-only.
+  - The certificate is the existing Let's Encrypt certificate, valid through
+    2026-12-21. Caddy loads it explicitly and does not renew it, so the existing
+    renewal process must be confirmed before that date.
+  - Plain HTTP to the public port returns 400; the endpoint is HTTPS-only.
   - MCP `initialize` without a token returned 401 and with the configured token
     returned 200 over HTTPS.
   - The official MCP client negotiated protocol `2026-07-28`, listed seven
     tools, resolved stop 85, returned three live arrivals with `source=live`,
     and reported the service ready with feed `4.28`.
-  - The existing `https://vladiro.go.ro/` site still returns its 301 redirect;
-    the Caddy change did not alter the unrelated site blocks.
+  - The existing root site still returns its 301 redirect; the Caddy change did
+    not alter the unrelated site blocks.
 - Updated the deployment guide with Caddy `flush_interval -1` and non-standard
   HTTPS port guidance, and updated the remote removal note with Caddy rollback
   instructions.
+
+## 2026-10-21 — repository hardening and public HTTPS guide
+
+- Enabled `main` branch protection through the GitHub API:
+  force pushes and branch deletion are blocked, administrators are subject to
+  the rules, and pull requests require the Python 3.11/3.12/3.13 test jobs,
+  `security`, and `build` checks. Direct pushes by maintainers remain possible.
+- Audited the current tree and all commits for bearer tokens, passwords, private
+  keys, `.env` files, and obvious cloud/API credentials; none were found.
+- Removed unnecessary internal deployment metadata (private hostname, LAN
+  addresses, internal Docker gateway, service-account paths, and backup names)
+  from the public execution log and implementation plan. The public hostname
+  and public IP were also removed from the repository docs.
+- Added [Public HTTPS](PUBLIC_HTTPS.md): an end-to-end systemd + Caddy guide
+  covering DNS, certificates, firewall, authentication, client configuration,
+  renewal, troubleshooting, and removal.
+- Added copy-paste examples under `deploy/` and an authenticated
+  `examples/https-client.json`; linked them from the README and deployment
+  documentation. Added `deploy/` to the source distribution.
 
 ## Environment limitations
 

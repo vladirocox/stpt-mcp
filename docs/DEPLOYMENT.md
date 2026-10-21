@@ -107,6 +107,9 @@ not a complete production platform.
 
 ## Reverse proxy and TLS
 
+For a complete end-to-end walkthrough with systemd, Caddy, DNS, firewall, and
+verification, see [Public HTTPS](PUBLIC_HTTPS.md).
+
 Put TLS and any additional authentication in front of the server. Example Caddy
 configuration:
 
