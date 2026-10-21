@@ -197,8 +197,9 @@ server:
 
 ```caddyfile
 example.com {
-    handle {
-        @oauth path /.well-known/oauth-authorization-server /.well-known/oauth-protected-resource/mcp /authorize /token /register /revoke /oauth/*
+    @oauth path /.well-known/oauth-authorization-server /.well-known/oauth-protected-resource/mcp /authorize /token /register /revoke /oauth/*
+
+    handle @oauth {
         reverse_proxy 127.0.0.1:8000 {
             flush_interval -1
         }

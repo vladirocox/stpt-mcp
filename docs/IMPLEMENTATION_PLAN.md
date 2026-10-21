@@ -1,6 +1,6 @@
 # Implementation plan
 
-Status: **v0.3.0 OAuth implemented; deployment verification in progress**
+Status: **v0.3.0 deployed with public HTTPS and OAuth**
 
 This plan is the delivery contract for `v0.1.0`, `v0.2.0`, and the `v0.3.0`
 OAuth addition.
@@ -154,7 +154,7 @@ limitation · **N/A** not applicable.
   rejection tests.
 - [x] Document the Caddy OAuth routes, Claude custom-connector steps, and
   troubleshooting in `docs/OAUTH.md` and `docs/PUBLIC_HTTPS.md`.
-- [ ] Deploy v0.3.0 and verify the public OAuth flow end to end.
+- [x] Deploy v0.3.0 and verify the public OAuth flow end to end.
 - [ ] Publish the v0.3.0 release and verify installation from the release asset.
 
 ## Explicit non-goals for v0.1.0
