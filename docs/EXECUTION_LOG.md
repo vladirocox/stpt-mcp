@@ -167,9 +167,44 @@ Commands run from `/home/vlad/Documents/stpt-mcp` with Python 3.11.17 and
 - Added `/home/vladirocox/STPT_MCP_REMOVAL.md` with stop/disable, unit removal,
   token removal, installation deletion, `ufw` rollback, router-forwarding
   rollback, and verification commands.
-- The endpoint uses plain HTTP on port 9000. The bearer token should be treated
+- The endpoint used plain HTTP on port 9000. The bearer token should be treated
   as sensitive; TLS via a reverse proxy is recommended if the endpoint is kept
-  public long-term.
+  public long-term. **Superseded by the HTTPS deployment below.**
+
+## 2026-10-21 — HTTPS for the public MCP endpoint
+
+- The host already runs a Caddy container on ports 80/443 with a Let's Encrypt
+  certificate for `vladiro.go.ro` (`/opt/homeassistant/ssl/fullchain.pem` and
+  `privkey.pem`).
+- Backed up the Caddy config, Caddy Compose file, and systemd unit with suffix
+  `20261021-174339` before changing them.
+- Moved the MCP process to internal `0.0.0.0:19000` so Caddy could own the
+  public port 9000. Updated `STPT_MCP_ALLOWED_HOSTS` and
+  `STPT_MCP_ALLOWED_ORIGINS` for `vladiro.go.ro:9000` and local checks.
+- Added a Caddy site block for `https://vladiro.go.ro:9000` using the existing
+  certificate, reverse-proxying to `172.18.0.1:19000` with
+  `flush_interval -1` for Streamable HTTP streaming.
+- Added `9000:9000` to the Caddy Compose port mappings and recreated the
+  container after `caddy validate` passed.
+- Verification:
+  - `https://vladiro.go.ro:9000/healthz` returned HTTP 200 with
+    `{"status":"ok","service":"stpt-mcp","version":"0.2.0"}` through the public
+    hostname and through an external reader.
+  - The certificate is the existing Let's Encrypt certificate for
+    `vladiro.go.ro`, valid through 2026-12-21. Caddy loads it explicitly and
+    does not renew it, so the existing renewal process must be confirmed before
+    that date.
+  - Plain HTTP to port 9000 returns 400; the endpoint is HTTPS-only.
+  - MCP `initialize` without a token returned 401 and with the configured token
+    returned 200 over HTTPS.
+  - The official MCP client negotiated protocol `2026-07-28`, listed seven
+    tools, resolved stop 85, returned three live arrivals with `source=live`,
+    and reported the service ready with feed `4.28`.
+  - The existing `https://vladiro.go.ro/` site still returns its 301 redirect;
+    the Caddy change did not alter the unrelated site blocks.
+- Updated the deployment guide with Caddy `flush_interval -1` and non-standard
+  HTTPS port guidance, and updated the remote removal note with Caddy rollback
+  instructions.
 
 ## Environment limitations
 

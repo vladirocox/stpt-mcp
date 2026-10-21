@@ -52,7 +52,7 @@ curl -fsS http://127.0.0.1:8000/healthz
 Expected:
 
 ```json
-{"status":"ok","service":"stpt-mcp","version":"0.1.0"}
+{"status":"ok","service":"stpt-mcp","version":"0.2.0"}
 ```
 
 ## Docker
@@ -63,10 +63,10 @@ The image runs as a non-root user and includes a health check.
 Build and run:
 
 ```bash
-docker build -t stpt-mcp:0.1.0 .
+docker build -t stpt-mcp:0.2.0 .
 docker run --rm -p 127.0.0.1:8000:8000 \
   -e STPT_MCP_ALLOWED_HOSTS=localhost:8000,127.0.0.1:8000 \
-  stpt-mcp:0.1.0
+  stpt-mcp:0.2.0
 ```
 
 The image sets:
@@ -84,7 +84,7 @@ Add authentication before exposing it beyond your machine:
 docker run --rm -p 127.0.0.1:8000:8000 \
   -e STPT_MCP_ALLOWED_HOSTS=localhost:8000,127.0.0.1:8000 \
   -e STPT_MCP_AUTH_TOKEN="$(stpt-mcp token)" \
-  stpt-mcp:0.1.0
+  stpt-mcp:0.2.0
 ```
 
 The `stpt-mcp token` command prints a new 256-bit URL-safe token and exits.
@@ -112,9 +112,28 @@ configuration:
 
 ```caddyfile
 mcp.example.com {
-    reverse_proxy 127.0.0.1:8000
+    reverse_proxy 127.0.0.1:8000 {
+        # Streamable HTTP can keep responses open; do not buffer them.
+        flush_interval -1
+    }
 }
 ```
+
+For a non-standard HTTPS port, use the same certificate and include the port in
+the allowlists:
+
+```caddyfile
+https://mcp.example.com:9000 {
+    tls /etc/letsencrypt/live/mcp.example.com/fullchain.pem /etc/letsencrypt/live/mcp.example.com/privkey.pem
+    reverse_proxy 127.0.0.1:8000 {
+        flush_interval -1
+    }
+}
+```
+
+The public client URL is then `https://mcp.example.com:9000/mcp`, and the
+server needs `STPT_MCP_ALLOWED_HOSTS=mcp.example.com:9000` because the proxy
+forwards the port in the `Host` header.
 
 Example nginx location:
 

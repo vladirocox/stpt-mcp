@@ -1,6 +1,6 @@
 # Implementation plan
 
-Status: **v0.2.0 deployed on `debian-hp`**
+Status: **v0.2.0 deployed on `debian-hp` with public HTTPS**
 
 This plan is the delivery contract for `v0.1.0`. Checkboxes are updated only
 after the corresponding check has actually run. A checked item with a command
@@ -123,13 +123,18 @@ limitation · **N/A** not applicable.
 - [x] Add `stpt-mcp token` and verify generated-token authentication.
 - [x] Install v0.2.0 in `/opt/stpt-mcp` on `debian-hp` under a dedicated
   virtual environment.
-- [x] Create and enable `stpt-mcp.service`; bind `0.0.0.0:9000` with the public
-  host and local hostnames in the allowlist.
+- [x] Create and enable `stpt-mcp.service`; run the MCP process on internal
+  `0.0.0.0:19000` with the public host and local hostnames in the allowlist.
 - [x] Store the bearer token in root-only `/etc/stpt-mcp.env`.
 - [x] Allow TCP 9000 through `ufw`; verify the existing router forwarding.
-- [x] Verify `/healthz`, unauthenticated `401`, authenticated MCP initialize,
-  the seven tools, a stop lookup, live arrivals, and service status over
-  `http://vladiro.go.ro:9000`.
+- [x] Add a Caddy site on `https://vladiro.go.ro:9000` using the existing
+  Let's Encrypt certificate, reverse-proxying to `172.18.0.1:19000` with
+  response buffering disabled.
+- [x] Verify HTTPS `/healthz`, unauthenticated `401`, authenticated MCP
+  initialize, the seven tools, a stop lookup, live arrivals, and service status
+  over `https://vladiro.go.ro:9000`.
+- [x] Verify the existing `https://vladiro.go.ro` site still redirects to its
+  configured destination, and that plain HTTP to port 9000 is rejected.
 - [x] Verify service restart and boot enablement.
 - [x] Leave `/home/vladirocox/STPT_MCP_REMOVAL.md` on the host with removal and
   firewall/router rollback commands.
