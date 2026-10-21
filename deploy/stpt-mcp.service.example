@@ -1,0 +1,45 @@
+# Copy to /etc/systemd/system/stpt-mcp.service, then:
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now stpt-mcp
+#
+# Replace mcp.example.com with your public hostname. If the proxy forwards a
+# non-standard port in the Host header, include it here and in
+# STPT_MCP_ALLOWED_ORIGINS.
+
+[Unit]
+Description=STPT Timisoara MCP server
+Documentation=https://github.com/vladirocox/stpt-mcp
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=stpt
+Group=stpt
+WorkingDirectory=/opt/stpt-mcp
+EnvironmentFile=/etc/stpt-mcp.env
+Environment=STPT_MCP_TRANSPORT=http
+Environment=STPT_MCP_HOST=127.0.0.1
+Environment=STPT_MCP_PORT=8000
+Environment=STPT_MCP_ALLOWED_HOSTS=mcp.example.com
+Environment=STPT_MCP_ALLOWED_ORIGINS=https://mcp.example.com
+Environment=STPT_MCP_LOG_LEVEL=INFO
+Environment=PYTHONDONTWRITEBYTECODE=1
+ExecStart=/opt/stpt-mcp/.venv/bin/stpt-mcp serve
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=20
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

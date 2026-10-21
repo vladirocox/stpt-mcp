@@ -1,0 +1,13 @@
+# Copy to /etc/caddy/Caddyfile, then:
+#   sudo caddy validate --config /etc/caddy/Caddyfile
+#   sudo systemctl reload caddy
+#
+# Replace mcp.example.com with your public hostname. If Caddy runs in Docker,
+# use a reachable host gateway instead of 127.0.0.1; see docs/PUBLIC_HTTPS.md.
+
+mcp.example.com {
+    reverse_proxy 127.0.0.1:8000 {
+        # Streamable HTTP can keep responses open; do not buffer them.
+        flush_interval -1
+    }
+}

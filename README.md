@@ -129,8 +129,9 @@ Minimal client configuration:
 
 HTTP is bound to `127.0.0.1` by default. Binding elsewhere requires an explicit
 `STPT_MCP_ALLOWED_HOSTS` allowlist. If you expose the server beyond localhost,
-also set `STPT_MCP_AUTH_TOKEN` and terminate TLS at a reverse proxy. See
-[Deployment](docs/DEPLOYMENT.md) and [Security](docs/SECURITY.md).
+also set `STPT_MCP_AUTH_TOKEN` and terminate TLS at a reverse proxy. For a
+complete public deployment, see [Public HTTPS](docs/PUBLIC_HTTPS.md),
+[Deployment](docs/DEPLOYMENT.md), and [Security](docs/SECURITY.md).
 
 ## Tools
 

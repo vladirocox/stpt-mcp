@@ -9,6 +9,9 @@ All notable changes are documented here. The format follows
 ### Added
 
 - `stpt-mcp token` command for generating a 256-bit URL-safe bearer token.
+- Public HTTPS deployment guide with systemd, Caddy, DNS, firewall, client, and
+  renewal examples.
+- Copy-paste Caddy, systemd, and environment examples under `deploy/`.
 - Documentation for token generation in HTTP, Docker, reverse-proxy, and
   security guidance.
 

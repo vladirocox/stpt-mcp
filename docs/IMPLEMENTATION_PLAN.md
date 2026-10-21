@@ -1,8 +1,9 @@
 # Implementation plan
 
-Status: **v0.2.0 deployed on `debian-hp` with public HTTPS**
+Status: **v0.2.0 deployed with public HTTPS**
 
-This plan is the delivery contract for `v0.1.0`. Checkboxes are updated only
+This plan is the delivery contract for `v0.1.0` and the `v0.2.0` additions.
+Checkboxes are updated only
 after the corresponding check has actually run. A checked item with a command
 means the command passed; environmental limitations are recorded separately.
 
@@ -24,8 +25,8 @@ limitation · **N/A** not applicable.
 
 - [x] Initialize an independent Git repository.
 - [x] Add license, attribution, agent guide, and implementation plan.
-- [x] Add architecture, data-source, tool, testing, deployment, operations, and
-  security documentation.
+- [x] Add architecture, data-source, tool, testing, deployment, public HTTPS,
+  operations, and security documentation, plus copy-paste deployment examples.
 - [x] Add contribution guide, code of conduct, changelog, release checklist,
   issue templates, and pull-request template.
 
@@ -121,23 +122,22 @@ limitation · **N/A** not applicable.
 ## 9. Remote deployment (v0.2.0)
 
 - [x] Add `stpt-mcp token` and verify generated-token authentication.
-- [x] Install v0.2.0 in `/opt/stpt-mcp` on `debian-hp` under a dedicated
-  virtual environment.
-- [x] Create and enable `stpt-mcp.service`; run the MCP process on internal
-  `0.0.0.0:19000` with the public host and local hostnames in the allowlist.
-- [x] Store the bearer token in root-only `/etc/stpt-mcp.env`.
-- [x] Allow TCP 9000 through `ufw`; verify the existing router forwarding.
-- [x] Add a Caddy site on `https://vladiro.go.ro:9000` using the existing
-  Let's Encrypt certificate, reverse-proxying to `172.18.0.1:19000` with
-  response buffering disabled.
+- [x] Install v0.2.0 in `/opt/stpt-mcp` on the deployment host under a
+  dedicated virtual environment.
+- [x] Create and enable `stpt-mcp.service`; run the MCP process on an internal
+  private port with the public host and local hostnames in the allowlist.
+- [x] Store the bearer token in a root-only environment file.
+- [x] Allow the public port through `ufw`; verify the existing router forwarding.
+- [x] Add a Caddy site using the existing Let's Encrypt certificate,
+  reverse-proxying to the internal port with response buffering disabled.
 - [x] Verify HTTPS `/healthz`, unauthenticated `401`, authenticated MCP
   initialize, the seven tools, a stop lookup, live arrivals, and service status
-  over `https://vladiro.go.ro:9000`.
-- [x] Verify the existing `https://vladiro.go.ro` site still redirects to its
-  configured destination, and that plain HTTP to port 9000 is rejected.
+  over the public HTTPS endpoint.
+- [x] Verify the existing root site still redirects to its configured
+  destination, and that plain HTTP to the public MCP port is rejected.
 - [x] Verify service restart and boot enablement.
-- [x] Leave `/home/vladirocox/STPT_MCP_REMOVAL.md` on the host with removal and
-  firewall/router rollback commands.
+- [x] Leave a removal note in the service account's home directory with removal
+  and firewall/router rollback commands.
 
 ## Explicit non-goals for v0.1.0
 

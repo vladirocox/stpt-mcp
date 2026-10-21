@@ -101,4 +101,5 @@ stpt-mcp serve
 ```
 
 Put TLS and any additional authentication at a reverse proxy. See
-[Deployment](DEPLOYMENT.md) and [Security](SECURITY.md).
+[Public HTTPS](PUBLIC_HTTPS.md), [Deployment](DEPLOYMENT.md), and
+[Security](SECURITY.md).
