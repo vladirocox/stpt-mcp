@@ -165,6 +165,42 @@ STPT_MCP_ALLOWED_ORIGINS=https://mcp.example.com:9000
 Caddy does not renew a manually loaded certificate. Keep the existing renewal
 process and reload Caddy after the certificate changes.
 
+### Cloud clients and port 443
+
+Some hosted clients connect from their own cloud infrastructure, not from your
+browser, and only allow the standard HTTPS port 443. Claude's custom connector
+backend is one example: a URL such as `https://mcp.example.com:9000/mcp` can fail
+with "Couldn't reach this address" even when `curl` works from your network.
+
+If you already serve a site on 443, add a path route before the catch-all
+redirect:
+
+```caddyfile
+example.com {
+    handle /mcp* {
+        reverse_proxy 127.0.0.1:8000 {
+            flush_interval -1
+        }
+    }
+
+    handle {
+        redir https://example.net permanent
+    }
+}
+```
+
+Use `https://example.com/mcp` in the client. Keep the Host allowlist entry as
+`example.com`; do not add `:443` unless the proxy explicitly forwards it.
+Claude's connector dialog can send a static bearer token through **Request
+headers**:
+
+```text
+authorization: Bearer <token>
+```
+
+Mark the header as required. If the dialog only offers OAuth, the server needs an
+OAuth layer; this project currently implements bearer authentication.
+
 ## 6. Firewall
 
 Allow only the ports Caddy needs:
