@@ -155,7 +155,7 @@ limitation · **N/A** not applicable.
 - [x] Document the Caddy OAuth routes, Claude custom-connector steps, and
   troubleshooting in `docs/OAUTH.md` and `docs/PUBLIC_HTTPS.md`.
 - [x] Deploy v0.3.0 and verify the public OAuth flow end to end.
-- [ ] Publish the v0.3.0 release and verify installation from the release asset.
+- [x] Publish the v0.3.0 release and verify installation from the release asset.
 
 ## Explicit non-goals for v0.1.0
 
