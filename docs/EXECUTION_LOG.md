@@ -282,3 +282,45 @@ Commands run from the project working directory with Python 3.11.17 and
 - Confirmed the deployed public endpoint still accepts the legacy static bearer
   token on both `https://vladiro.go.ro/mcp` and
   `https://vladiro.go.ro:9000/mcp` while OAuth is enabled.
+
+## 2026-10-21 — v0.3.1 maintenance release
+
+- Merged Dependabot PR [#4](https://github.com/vladirocox/stpt-mcp/pull/4),
+  bumping `mypy` from 1.20.2 to 2.4.0, and opened and merged PR
+  [#11](https://github.com/vladirocox/stpt-mcp/pull/11) for the release state.
+- Verification for v0.3.1: Ruff format/lint passed; strict MyPy passed with
+  mypy 2.4.0; pytest reported **211 passed, 1 deselected** at **91.30%**
+  coverage; Bandit reported no issues; pip-audit found no known vulnerabilities
+  in the auditable dependencies; and `uv build` produced the
+  `stpt_mcp-0.3.1` wheel and sdist. pip-audit skipped the local `stpt-mcp`
+  package because it is not published on PyPI.
+- Inspected both artifacts for secrets, caches, and unresolved TODO/FIXME
+  markers; none were present. Installed the wheel in a fresh Python 3.11
+  virtual environment and confirmed `stpt-mcp 0.3.1`.
+- Ran stdio and authenticated HTTP smoke tests from the installed wheel; each
+  returned the seven tools and a successful structured `search_stops` or
+  `get_service_status` result.
+- CI passed the Python 3.11, 3.12, and 3.13 test jobs plus the security, build,
+  and container jobs.
+- Published
+  [v0.3.1](https://github.com/vladirocox/stpt-mcp/releases/tag/v0.3.1) with the
+  wheel and sdist assets, then installed the published wheel in another fresh
+  Python 3.11 environment; it reports `stpt-mcp 0.3.1`.
+- Updated `/opt/stpt-mcp` to commit `2323672`, installed the 0.3.1 wheel in the
+  service virtual environment, and restarted `stpt-mcp`. The service is active
+  and enabled; `/healthz` returns `0.3.1`.
+- Verified through the public HTTPS endpoints:
+  - OAuth discovery 200, protected-resource metadata 200, dynamic registration
+    201, login page 200, authorization redirect 302, code exchange 200, refresh
+    exchange 200, and an OAuth-authenticated MCP client listed seven tools and
+    returned `get_service_status` with `status: ok` and `ready: true`;
+  - the static bearer token listed seven tools and returned successful
+    `get_service_status` and `search_stops` results on both
+    `https://vladiro.go.ro/mcp` and `https://vladiro.go.ro:9000/mcp`;
+  - the legacy health endpoint reports `0.3.1`, and the root site still returns
+    `301` to its configured destination.
+- The restart invalidated the in-memory OAuth tokens as documented; the static
+  bearer token remains valid. Existing OAuth clients must sign in again.
+- The deployment host could not reach its own public hostname because of NAT
+  hairpin behaviour. Public endpoint checks were executed from the external
+  workstation that manages the host.
