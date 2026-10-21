@@ -4,6 +4,19 @@ All notable changes are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [0.3.2] - 2026-10-21
+
+### Changed
+
+- Bumped the package version to 0.3.2 and refreshed the documented release
+  artifact references.
+
+### Documentation
+
+- Documented how route information is exposed by the current tools.
+- Recorded that the public tool surface stays at seven tools. No route-detail
+  tool with an ordered stop list or route geometry is exposed.
+
 ## [0.3.1] - 2026-10-21
 
 ### Changed
@@ -72,6 +85,7 @@ All notable changes are documented here. The format follows
 - Docker/Podman was unavailable in the development environment; the container
   build and health check are verified by CI, not by a local run.
 
+[0.3.2]: https://github.com/vladirocox/stpt-mcp/releases/tag/v0.3.2
 [0.3.1]: https://github.com/vladirocox/stpt-mcp/releases/tag/v0.3.1
 [0.3.0]: https://github.com/vladirocox/stpt-mcp/releases/tag/v0.3.0
 [0.2.0]: https://github.com/vladirocox/stpt-mcp/releases/tag/v0.2.0

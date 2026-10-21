@@ -1,9 +1,9 @@
 # Implementation plan
 
-Status: **v0.3.1 deployed with public HTTPS and OAuth**
+Status: **v0.3.2 deployed with public HTTPS and OAuth**
 
-This plan is the delivery contract for `v0.1.0`, `v0.2.0`, `v0.3.0`, and
-the `v0.3.1` maintenance release.
+This plan is the delivery contract for `v0.1.0`, `v0.2.0`, `v0.3.0`,
+`v0.3.1`, and the `v0.3.2` scope release.
 Checkboxes are updated only
 after the corresponding check has actually run. A checked item with a command
 means the command passed; environmental limitations are recorded separately.
@@ -167,6 +167,15 @@ limitation · **N/A** not applicable.
 - [x] Deploy v0.3.1 and verify public OAuth metadata, token exchange, the static
   bearer token, and the seven MCP tools on ports 443 and 9000.
 
+## 12. Tool surface scope (v0.3.2)
+
+- [x] Keep the public tool surface at the seven tools listed in
+  `docs/TOOLS.md`.
+- [x] Document the route information those tools already expose, so clients do
+  not need a separate route lookup.
+- [x] Decide against a route-detail tool that returns an ordered stop list or
+  route geometry. The decision is recorded here and in `docs/TOOLS.md`.
+
 ## Explicit non-goals for v0.1.0
 
 - Real-time push subscriptions or websocket updates.
@@ -175,3 +184,6 @@ limitation · **N/A** not applicable.
 - Scraping account-only or private STPT systems.
 - Running a database, Redis, or other external state store.
 - Home Assistant integration.
+- A route-detail tool that returns a line's ordered stop list or
+  geometry. Route information stays available through `list_routes`,
+  `get_arrivals`, `get_stop`, and `get_vehicles`.

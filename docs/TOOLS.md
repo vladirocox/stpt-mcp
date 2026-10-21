@@ -211,6 +211,23 @@ version/generation/service range, and cache statistics. It contains no secrets.
 Cache statistics include entries, maximum entries, hits, misses, coalesced waits,
 stale hits, evictions, loads, failures, and in-flight loads.
 
+## Route information
+
+The tool surface exposes route information through the existing tools rather
+than through a dedicated route-detail tool:
+
+- `list_routes` returns every route with its line, name, long name, category,
+  mode, GTFS type name, and colors.
+- `get_arrivals` returns the line, mode, direction, and destination for each
+  arrival at a stop.
+- `get_stop` returns the lines serving a stop, each with its direction and
+  destination, plus the stop's neighboring stops.
+- `get_vehicles` returns the route, trip, and shape identifiers of each
+  vehicle.
+
+A route's ordered stop list and its geometry are not exposed. The bundled
+snapshot stores them for internal lookups, but no tool returns them.
+
 ## Error codes
 
 | Code | Typical meaning |

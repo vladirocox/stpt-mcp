@@ -328,3 +328,35 @@ Commands run from the project working directory with Python 3.11.17 and
 - The deployment host could not reach its own public hostname because of NAT
   hairpin behaviour. Public endpoint checks were executed from the external
   workstation that manages the host.
+
+## 2026-10-21 — v0.3.2 tool surface scope
+
+- Kept the public tool surface at the seven existing tools. A route-detail
+  tool that returns a line's ordered stop list or geometry was considered and
+  rejected, so no `get_route` tool was added.
+- Documented the route information the current tools already expose in
+  `docs/TOOLS.md`: `list_routes` returns lines, names, modes, categories, and
+  colors; `get_arrivals` returns line, mode, direction, and destination;
+  `get_stop` returns the serving lines with their directions and destinations
+  plus neighboring stops; `get_vehicles` returns route, trip, and shape
+  identifiers. The bundled snapshot keeps the ordered stop lists and shapes for
+  internal lookups, but no tool returns them.
+- Recorded the decision in `docs/IMPLEMENTATION_PLAN.md` as a scope section and
+  as an explicit non-goal.
+- Bumped the package version to 0.3.2 and refreshed the documented release
+  artifact references.
+- Verification for v0.3.2: Ruff format/lint passed; strict MyPy passed;
+  pytest reported **211 passed, 1 deselected** at **91.30%** coverage;
+  Bandit reported no issues; pip-audit found no known vulnerabilities in the
+  auditable dependencies; `uv build` produced the `stpt_mcp-0.3.2` wheel and
+  sdist. pip-audit skipped the local `stpt-mcp` package because it is not
+  published on PyPI.
+- Inspected both artifacts for secrets, caches, and unresolved TODO/FIXME
+  markers; none were present. Installed the wheel in a fresh Python 3.11
+  virtual environment and confirmed `stpt-mcp 0.3.2`.
+- Ran the stdio and authenticated HTTP smoke tests from the installed wheel;
+  each returned the seven tools and a successful structured result.
+- Re-ran the opt-in live smoke test with
+  `STPT_MCP_RUN_NETWORK_TESTS=1 uv run pytest -m network`; it passed
+  (**1 passed, 211 deselected**) against the live STPT live, alerts, and
+  vehicles endpoints.
