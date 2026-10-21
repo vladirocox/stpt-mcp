@@ -17,7 +17,7 @@ operational data.
 The CLI logs to stderr. A normal local HTTP start looks like:
 
 ```text
-... INFO stpt_mcp.cli: starting stpt-mcp 0.3.1 over streamable HTTP on 127.0.0.1:8000/mcp
+... INFO stpt_mcp.cli: starting stpt-mcp 0.3.2 over streamable HTTP on 127.0.0.1:8000/mcp
 ```
 
 If HTTP binds to a non-loopback address without a static token or OAuth, the
