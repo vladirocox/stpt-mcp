@@ -128,6 +128,18 @@ Commands run from `/home/vlad/Documents/stpt-mcp` with Python 3.11.17 and
   194 deselected**. It contacted public STPT endpoints for arrivals, alerts,
   vehicles, and status. It remains excluded from CI.
 
+## 2026-10-21 — v0.2.0: auth token generation
+
+- Added `stpt-mcp token`, which prints a new 256-bit URL-safe bearer token and
+  exits. `STPT_MCP_AUTH_TOKEN` remains the runtime setting.
+- Added unit tests for token validity, uniqueness, settings validation, and CLI
+  output.
+- Updated README, configuration, deployment, security, AGENTS, and changelog.
+- Verification for v0.2.0: Ruff format/lint passed, strict MyPy passed, pytest
+  reported **196 passed, 1 deselected** at **93.02%** coverage, Bandit reported
+  0 issues, pip-audit found no known vulnerabilities, and `uv build` produced
+  `stpt_mcp-0.2.0` wheel and sdist.
+
 ## Environment limitations
 
 - Docker/Podman is unavailable locally. Local `docker build`, `docker run`, and

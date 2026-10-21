@@ -45,6 +45,7 @@ Run the server locally:
 ```bash
 uv run stpt-mcp serve --transport stdio
 uv run stpt-mcp serve --transport http
+uv run stpt-mcp token
 ```
 
 ## Layout

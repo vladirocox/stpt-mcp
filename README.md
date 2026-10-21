@@ -46,7 +46,7 @@ Or from a wheel/sdist:
 ```bash
 python -m venv .venv
 . .venv/bin/activate
-pip install dist/stpt_mcp-0.1.0-py3-none-any.whl
+pip install dist/stpt_mcp-0.2.0-py3-none-any.whl
 stpt-mcp --version
 ```
 
@@ -104,6 +104,16 @@ uv run stpt-mcp serve --transport http
 # endpoint: http://127.0.0.1:8000/mcp
 # health:   http://127.0.0.1:8000/healthz
 ```
+
+Generate a bearer token for any non-local deployment:
+
+```bash
+export STPT_MCP_AUTH_TOKEN="$(stpt-mcp token)"
+stpt-mcp serve --transport http
+```
+
+Clients then send `Authorization: Bearer <token>`. `/healthz` stays
+unauthenticated.
 
 Minimal client configuration:
 

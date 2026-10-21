@@ -4,6 +4,14 @@ All notable changes are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [0.2.0] - 2026-10-21
+
+### Added
+
+- `stpt-mcp token` command for generating a 256-bit URL-safe bearer token.
+- Documentation for token generation in HTTP, Docker, reverse-proxy, and
+  security guidance.
+
 ## [0.1.0] - 2026-10-21
 
 ### Added
@@ -37,4 +45,5 @@ All notable changes are documented here. The format follows
 - Docker/Podman was unavailable in the development environment; the container
   build and health check are verified by CI, not by a local run.
 
+[0.2.0]: https://github.com/vladirocox/stpt-mcp/releases/tag/v0.2.0
 [0.1.0]: https://github.com/vladirocox/stpt-mcp/releases/tag/v0.1.0

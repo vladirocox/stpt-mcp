@@ -83,14 +83,16 @@ Add authentication before exposing it beyond your machine:
 ```bash
 docker run --rm -p 127.0.0.1:8000:8000 \
   -e STPT_MCP_ALLOWED_HOSTS=localhost:8000,127.0.0.1:8000 \
-  -e STPT_MCP_AUTH_TOKEN='replace-with-a-long-random-token' \
+  -e STPT_MCP_AUTH_TOKEN="$(stpt-mcp token)" \
   stpt-mcp:0.1.0
 ```
+
+The `stpt-mcp token` command prints a new 256-bit URL-safe token and exits.
 
 ### Compose
 
 ```bash
-export STPT_MCP_AUTH_TOKEN='replace-with-a-long-random-token'
+export STPT_MCP_AUTH_TOKEN="$(stpt-mcp token)"
 docker compose up --build
 ```
 
@@ -135,7 +137,7 @@ STPT_MCP_TRANSPORT=http \
 STPT_MCP_HOST=127.0.0.1 \
 STPT_MCP_ALLOWED_HOSTS=mcp.example.com \
 STPT_MCP_ALLOWED_ORIGINS=https://mcp.example.com \
-STPT_MCP_AUTH_TOKEN='a-long-random-token' \
+STPT_MCP_AUTH_TOKEN="$(stpt-mcp token)" \
 stpt-mcp serve
 ```
 

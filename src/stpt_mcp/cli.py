@@ -10,7 +10,7 @@ from dataclasses import replace
 import uvicorn
 
 from stpt_mcp import __version__
-from stpt_mcp.config import Settings, SettingsError, Transport
+from stpt_mcp.config import Settings, SettingsError, Transport, generate_auth_token
 from stpt_mcp.http_app import create_http_app
 from stpt_mcp.server import build_server
 
@@ -24,6 +24,7 @@ def _parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     subparsers = parser.add_subparsers(dest="command")
+    subparsers.add_parser("token", help="generate a bearer token for HTTP auth and exit")
     serve = subparsers.add_parser("serve", help="run the MCP server")
     serve.add_argument(
         "--transport",
@@ -78,6 +79,9 @@ def _settings_from_args(args: argparse.Namespace) -> Settings:
 def main() -> None:
     parser = _parser()
     args = parser.parse_args()
+    if args.command == "token":
+        print(generate_auth_token())
+        return
     if args.command is None:
         # Running `stpt-mcp` directly is the shortest stdio configuration.
         args = parser.parse_args(["serve"])

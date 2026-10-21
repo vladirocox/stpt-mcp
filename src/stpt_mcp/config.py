@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import ipaddress
 import os
+import secrets
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from enum import StrEnum
@@ -38,6 +39,11 @@ class Transport(StrEnum):
 
 class SettingsError(ValueError):
     """Invalid configuration supplied by the operator."""
+
+
+def generate_auth_token() -> str:
+    """Return a URL-safe bearer token with 256 bits of entropy."""
+    return secrets.token_urlsafe(32)
 
 
 @dataclass(frozen=True, slots=True)

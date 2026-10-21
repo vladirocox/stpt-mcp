@@ -1,6 +1,6 @@
 # Implementation plan
 
-Status: **released — v0.1.0 published**
+Status: **v0.2.0 prepared — remote deployment pending**
 
 This plan is the delivery contract for `v0.1.0`. Checkboxes are updated only
 after the corresponding check has actually run. A checked item with a command

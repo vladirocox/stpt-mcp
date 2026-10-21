@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 import argparse
+import sys
 
 import pytest
 
-from stpt_mcp.cli import _parser, _settings_from_args
-from stpt_mcp.config import SettingsError, Transport
+from stpt_mcp.cli import _parser, _settings_from_args, main
+from stpt_mcp.config import Settings, SettingsError, Transport, generate_auth_token
 
 
 def test_parser_requires_serve_or_defaults() -> None:
@@ -15,6 +16,27 @@ def test_parser_requires_serve_or_defaults() -> None:
     args = parser.parse_args([])
     assert args.command is None
     assert parser.parse_args(["serve"]).command == "serve"
+    assert parser.parse_args(["token"]).command == "token"
+
+
+def test_generated_auth_token_is_valid_and_unique() -> None:
+    token = generate_auth_token()
+    assert len(token) >= 32
+    assert token.isascii()
+    assert " " not in token
+    assert generate_auth_token() != token
+    assert Settings(auth_token=token).auth_token == token
+
+
+def test_token_command_prints_a_token(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setattr(sys, "argv", ["stpt-mcp", "token"])
+    main()
+    output = capsys.readouterr().out.strip()
+    assert len(output) >= 32
+    assert " " not in output
+    assert Settings(auth_token=output).auth_token == output
 
 
 def test_parser_collects_http_options() -> None:

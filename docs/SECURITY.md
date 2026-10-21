@@ -77,8 +77,9 @@ execution or an unbounded allocation.
 
 ## Token handling
 
-- Minimum length is 16 characters; use at least 32 random bytes (for example,
-  `openssl rand -base64 32`).
+- Generate tokens with `stpt-mcp token` (256 bits of entropy) or
+  `openssl rand -base64 32`.
+- Minimum length is 16 characters; prefer at least 32 random bytes.
 - Tokens are not written to disk by this project.
 - `Settings` marks the token `repr=False`; `get_service_status` never includes it.
 - Rotate by restarting the server with the new value and updating clients.

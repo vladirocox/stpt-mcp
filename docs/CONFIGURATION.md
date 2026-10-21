@@ -41,7 +41,7 @@ All must be absolute `http(s)` URLs. Tests point these at loopback servers.
 
 | Variable | Default | Notes |
 | --- | --- | --- |
-| `STPT_MCP_AUTH_TOKEN` | unset | Static bearer token on every route except `/healthz`; 16+ chars, no whitespace. |
+| `STPT_MCP_AUTH_TOKEN` | unset | Static bearer token on every route except `/healthz`; 16+ chars, no whitespace. Generate one with `stpt-mcp token`. |
 | `STPT_MCP_ALLOWED_HOSTS` | loopback patterns | Comma-separated Host allowlist. Required for non-loopback binds. |
 | `STPT_MCP_ALLOWED_ORIGINS` | loopback origins | Comma-separated browser Origin allowlist. |
 | `STPT_MCP_MAX_REQUEST_BODY_SIZE` | `1048576` | Bytes; 1 KiB–100 MB. |
@@ -95,7 +95,7 @@ multi-client local deployment.
 STPT_MCP_TRANSPORT=http \
 STPT_MCP_HOST=0.0.0.0 \
 STPT_MCP_ALLOWED_HOSTS=mcp.example.com \
-STPT_MCP_AUTH_TOKEN='replace-with-a-long-random-token' \
+STPT_MCP_AUTH_TOKEN="$(stpt-mcp token)" \
 STPT_MCP_LOG_LEVEL=INFO \
 stpt-mcp serve
 ```
