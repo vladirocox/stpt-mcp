@@ -1,0 +1,71 @@
+{
+  "success": true,
+  "data": {
+    "vehicles": [
+      {
+        "id": "3515",
+        "lat": 45.750518798828125,
+        "lng": 21.207250595092773,
+        "bearing": 85.18640899658203,
+        "speed": 0,
+        "route": "8",
+        "directionId": "0",
+        "headsign": "Piața Gh. Domășneanu",
+        "stop": "Gara de Nord",
+        "timestamp": 1792578570000,
+        "isAccessible": false,
+        "routeId": "R_TV_8",
+        "tripId": "8.1_WDSC_T_01_08",
+        "shapeId": "8.1_T"
+      },
+      {
+        "id": "GLU",
+        "lat": 45.74515151977539,
+        "lng": 21.225679397583008,
+        "bearing": 354.42926025390625,
+        "speed": 0,
+        "route": "7",
+        "directionId": "0",
+        "headsign": "Albăstrelelor (Plopi)",
+        "stop": "Facultatea de Mecanică",
+        "timestamp": 1792578595000,
+        "isAccessible": true,
+        "routeId": "R_TV_7",
+        "tripId": "7.1_WDSC_T_05_04",
+        "shapeId": "7.1_T"
+      },
+      {
+        "id": "3512",
+        "lat": 45.72890090942383,
+        "lng": 21.22718048095703,
+        "bearing": 184.5,
+        "speed": 12.5,
+        "route": "2",
+        "directionId": "1",
+        "headsign": "Calea Torontalului",
+        "stop": "Piața Traian",
+        "timestamp": "1792578300000",
+        "isAccessible": false,
+        "routeId": "R_TV_2",
+        "tripId": "2.1_WDSC_R_01_02",
+        "shapeId": "2.1_R"
+      },
+      {
+        "id": "GLR",
+        "lat": 45.7628288269043,
+        "lng": 21.248090744018555,
+        "bearing": 251.30313110351562,
+        "speed": 4,
+        "route": "M30",
+        "directionId": "1",
+        "headsign": "Timișoara (Bastion)",
+        "stop": "Piața Badea Cârțan (Multiplexity)",
+        "timestamp": null,
+        "isAccessible": "false",
+        "routeId": "R_AB_M30",
+        "tripId": "M30.1_WDSC_R_01_08",
+        "shapeId": "M30.1_R"
+      }
+    ]
+  }
+}

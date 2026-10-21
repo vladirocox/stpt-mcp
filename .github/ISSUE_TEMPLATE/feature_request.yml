@@ -1,0 +1,39 @@
+name: Feature request
+description: Propose a new capability or behavior.
+title: "feat: "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What are you trying to do that the server does not support?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: Describe the tool, argument, or behavior you want.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+  - type: textarea
+    id: impact
+    attributes:
+      label: Data source and load impact
+      description: |
+        Does this require a new upstream endpoint, more requests, new caching, or
+        a change to provenance? If unknown, say so.
+  - type: checkboxes
+    id: constraints
+    attributes:
+      label: Project constraints
+      options:
+        - label: This does not require Home Assistant or a database.
+          required: true
+        - label: This does not make CI depend on live STPT services.
+          required: true

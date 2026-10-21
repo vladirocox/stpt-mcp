@@ -1,0 +1,22 @@
+services:
+  stpt-mcp:
+    build: .
+    image: stpt-mcp:local
+    ports:
+      - "127.0.0.1:8000:8000"
+    environment:
+      STPT_MCP_TRANSPORT: http
+      STPT_MCP_HOST: 0.0.0.0
+      STPT_MCP_PORT: "8000"
+      STPT_MCP_ALLOWED_HOSTS: localhost:8000,127.0.0.1:8000
+      STPT_MCP_ALLOWED_ORIGINS: http://localhost:8000,http://127.0.0.1:8000
+      STPT_MCP_AUTH_TOKEN: ${STPT_MCP_AUTH_TOKEN:?set STPT_MCP_AUTH_TOKEN}
+      STPT_MCP_LOG_LEVEL: INFO
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL

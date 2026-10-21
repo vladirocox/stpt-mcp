@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "stpt": {
+      "command": "stpt-mcp",
+      "args": ["serve", "--transport", "stdio"]
+    }
+  }
+}

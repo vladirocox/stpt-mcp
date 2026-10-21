@@ -1,0 +1,37 @@
+{
+  "alerts": [
+    {
+      "id": "A1",
+      "headerText": "Tram 7 deviated for construction",
+      "descriptionText": "Line 7 uses a temporary route near the cathedral.",
+      "cause": "CONSTRUCTION",
+      "effect": "DETOUR",
+      "activePeriod": [{ "start": "1792569600", "end": "1792656000" }],
+      "informedEntity": [{ "routeId": "R_TV_7" }, { "stopId": "85" }]
+    },
+    {
+      "id": "A2",
+      "headerText": "Expired express 3 diversion",
+      "descriptionText": "This alert ended before the test instant.",
+      "cause": "CONSTRUCTION",
+      "effect": "DETOUR",
+      "activePeriod": [{ "start": "1791000000", "end": "1791100000" }],
+      "informedEntity": [{ "routeId": "R_AB_E3" }]
+    },
+    {
+      "id": "A3",
+      "headerText": "Future metropolitan 32 diversion",
+      "descriptionText": "This alert starts in the future.",
+      "activePeriod": [{ "start": "1793000000", "end": "1794000000" }],
+      "informedEntity": [{ "routeId": "R_AB_M32" }]
+    },
+    {
+      "id": "A4",
+      "headerText": {
+        "translation": [{ "text": "Network-wide information without a period" }]
+      },
+      "descriptionText": { "translation": [{ "text": "Always treated as active." }] },
+      "informedEntity": [{ "agencyId": "STPT" }]
+    }
+  ]
+}

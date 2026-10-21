@@ -1,0 +1,34 @@
+# Third-party data and attribution
+
+This project is **not affiliated with, endorsed by, or operated by** Societatea
+de Transport Public Timișoara (STPT) or the Timișoara municipality.
+
+Transit information is retrieved from publicly reachable endpoints operated by
+STPT:
+
+- Live arrivals: `https://live.stpt.ro/proxy-smtt-cache.php`
+- Alerts: `https://live.stpt.ro/proxy-alerts.php`
+- Vehicles: `https://live.stpt.ro/gtfs-vehicles.php`
+- Schedule: `https://smtt.ro/linie-transport-public-*`
+- GTFS-derived network snapshot: `https://live.stpt.ro/gtfs-data/`
+
+The bundled `network.json` is a derived snapshot of STPT's public GTFS data. It
+contains stop codes, stop names, coordinates, route membership, and stop
+sequences, together with feed metadata. It is included only to make stop/route
+discovery work when the upstream network is unavailable. It is refreshed by the
+project maintainers, not downloaded at runtime.
+
+STPT and its data remain the property of their respective owners. No warranty
+is made about the accuracy, completeness, or availability of upstream data.
+Downstream users are responsible for complying with applicable terms of use
+and for not overloading the public endpoints. This server applies caching,
+single-flight coalescing, bounded concurrency, and conservative timeouts for
+that reason.
+
+The source code in this repository is licensed under the MIT License; that
+license does not grant rights to STPT data beyond what applicable law and STPT
+permit.
+
+OpenStreetMap-derived coordinates may be present in the upstream GTFS feed.
+OpenStreetMap data is © OpenStreetMap contributors, available under the Open
+Database License (ODbL).

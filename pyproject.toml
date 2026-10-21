@@ -1,0 +1,148 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "stpt-mcp"
+version = "0.1.0"
+description = "An unofficial MCP server for STPT public transport in Timișoara"
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.11"
+authors = [{ name = "Vlad Irocox", email = "vladirocox@users.noreply.github.com" }]
+keywords = ["mcp", "stpt", "transit", "tram", "bus", "timisoara"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Environment :: Console",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Internet :: WWW/HTTP :: HTTP Servers",
+  "Topic :: Software Development :: Libraries :: Python Modules",
+  "Typing :: Typed",
+]
+dependencies = [
+  "beautifulsoup4>=4.13.4,<5",
+  "httpx>=0.28.1,<1",
+  "mcp>=2.3.0,<3",
+  "pydantic>=2.12,<3",
+  "uvicorn>=0.31.1,<1",
+]
+
+[project.urls]
+Homepage = "https://github.com/vladirocox/stpt-mcp"
+Repository = "https://github.com/vladirocox/stpt-mcp"
+Issues = "https://github.com/vladirocox/stpt-mcp/issues"
+Changelog = "https://github.com/vladirocox/stpt-mcp/blob/main/CHANGELOG.md"
+
+[project.scripts]
+stpt-mcp = "stpt_mcp.cli:main"
+
+[dependency-groups]
+dev = [
+  "bandit[toml]>=1.8.6,<2",
+  "mypy>=1.17,<2",
+  "pip-audit>=2.9,<3",
+  "pytest>=8.4,<10",
+  "pytest-asyncio>=1.1,<2",
+  "pytest-cov>=6.2,<8",
+  "ruff>=0.12,<1",
+  "types-beautifulsoup4>=4.12.0.20250516",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/stpt_mcp"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+  "/src",
+  "/tests",
+  "/docs",
+  "/examples",
+  "/.github",
+  "/README.md",
+  "/AGENTS.md",
+  "/CHANGELOG.md",
+  "/CODE_OF_CONDUCT.md",
+  "/CONTRIBUTING.md",
+  "/Dockerfile",
+  "/LICENSE",
+  "/NOTICE",
+  "/SECURITY.md",
+  "/compose.yaml",
+  "/pyproject.toml",
+]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "ASYNC", "RUF", "S", "SIM"]
+ignore = [
+  "E501",   # line length is enforced by the formatter
+  "RUF001", # Romanian text intentionally uses non-ASCII punctuation
+  "RUF002",
+  "RUF003",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101", "S104", "S105", "S311", "S603", "ASYNC220"]
+"scripts/**" = ["S"]
+"src/stpt_mcp/upstream.py" = ["S311"]
+
+[tool.ruff.format]
+quote-style = "double"
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+warn_unreachable = true
+plugins = ["pydantic.mypy"]
+files = ["src", "tests"]
+exclude = ["tests/fixtures"]
+
+[[tool.mypy.overrides]]
+module = ["bs4.*"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+addopts = "-ra --strict-markers --strict-config"
+markers = [
+  "integration: tests that exercise multiple components with deterministic fakes",
+  "protocol: MCP protocol or transport tests",
+  "e2e: end-to-end tests that launch a real client and server",
+  "network: tests that may contact public STPT services (excluded from CI)",
+]
+filterwarnings = [
+  "error",
+  "ignore::DeprecationWarning:starlette.*",
+  "ignore::DeprecationWarning:websockets.*",
+]
+
+[tool.coverage.run]
+branch = true
+source = ["stpt_mcp"]
+omit = ["src/stpt_mcp/__main__.py"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
+precision = 1
+fail_under = 85
+exclude_lines = [
+  "pragma: no cover",
+  "if TYPE_CHECKING:",
+  "if __name__ == .__main__.:",
+  "raise NotImplementedError",
+]
+
+[tool.bandit]
+exclude_dirs = ["tests", ".venv"]
+skips = ["B101"]

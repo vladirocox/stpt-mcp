@@ -1,0 +1,83 @@
+name: Bug report
+description: Report a reproducible defect in stpt-mcp.
+title: "bug: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Do not include access tokens, private data, or security-sensitive details.
+        Security issues must follow SECURITY.md, not this form.
+  - type: input
+    id: version
+    attributes:
+      label: stpt-mcp version
+      placeholder: "0.1.0 (output of `stpt-mcp --version`)"
+    validations:
+      required: true
+  - type: dropdown
+    id: transport
+    attributes:
+      label: Transport
+      options:
+        - stdio
+        - Streamable HTTP
+        - both
+    validations:
+      required: true
+  - type: input
+    id: client
+    attributes:
+      label: MCP client
+      description: Client name and version, if known.
+      placeholder: "e.g. Claude Desktop 1.x, custom SDK client"
+  - type: input
+    id: python
+    attributes:
+      label: Python and OS
+      placeholder: "Python 3.12.4, Ubuntu 24.04"
+    validations:
+      required: true
+  - type: textarea
+    id: command
+    attributes:
+      label: Command or client configuration
+      description: Redact tokens and hostnames.
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Start the server with ...
+        2. Call tool ...
+        3. Observe ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior and logs
+      description: Include the structured error envelope and relevant stderr, redacted.
+      render: text
+    validations:
+      required: true
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checklist
+      options:
+        - label: I removed tokens, credentials, and private data.
+          required: true
+        - label: I searched existing issues.
+          required: true
+        - label: This is not a security vulnerability.
+          required: true
