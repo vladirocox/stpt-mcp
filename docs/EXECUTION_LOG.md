@@ -123,11 +123,15 @@ Commands run from `/home/vlad/Documents/stpt-mcp` with Python 3.11.17 and
 - The published CI container build and health check succeeded. This validates the
   Dockerfile in CI; it does not constitute a local Docker run in this
   environment.
+- Ran the opt-in live smoke test after publication:
+  `STPT_MCP_RUN_NETWORK_TESTS=1 uv run pytest -m network -vv` — **1 passed,
+  194 deselected**. It contacted public STPT endpoints for arrivals, alerts,
+  vehicles, and status. It remains excluded from CI.
 
 ## Environment limitations
 
 - Docker/Podman is unavailable locally. Local `docker build`, `docker run`, and
   `docker compose config` were not executed. The CI container job is the
   verification path and passed.
-- The live network smoke test was not run during this release. The default suite
-  is deterministic and made no live STPT requests.
+- The opt-in live network smoke test passed once after publication. It is not part
+  of CI; the default suite is deterministic and makes no live STPT requests.

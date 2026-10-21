@@ -80,8 +80,9 @@ uv run pytest tests/integration/test_concurrency.py -vv
 STPT_MCP_RUN_NETWORK_TESTS=1 uv run pytest -m network -vv
 ```
 
-This contacts public STPT endpoints and is excluded from CI. It is a smoke test,
-not a guarantee of upstream correctness.
+This contacts public STPT endpoints and is excluded from CI. It passed once
+during the v0.1.0 publication checks. It is a smoke test, not a guarantee of
+upstream correctness.
 
 ## Coverage
 
