@@ -1,9 +1,9 @@
 # Implementation plan
 
-Status: **v0.3.2 deployed with public HTTPS and OAuth**
+Status: **v0.3.3 deployed with public HTTPS and OAuth**
 
 This plan is the delivery contract for `v0.1.0`, `v0.2.0`, `v0.3.0`,
-`v0.3.1`, and the `v0.3.2` scope release.
+`v0.3.1`, `v0.3.2`, and the `v0.3.3` documentation release.
 Checkboxes are updated only
 after the corresponding check has actually run. A checked item with a command
 means the command passed; environmental limitations are recorded separately.
@@ -175,6 +175,17 @@ limitation · **N/A** not applicable.
   not need a separate route lookup.
 - [x] Decide against a route-detail tool that returns an ordered stop list or
   route geometry. The decision is recorded here and in `docs/TOOLS.md`.
+
+## 13. Project cross-references (v0.3.3)
+
+- [x] Add a chat screenshot to the README showing the tools answering an
+  arrival question, and include `assets/` in the source distribution.
+- [x] Add a "Related projects" section to the README pointing to the Home
+  Assistant integration and the Inky pHAT dashboard.
+- [x] Add the matching cross-references to the Home Assistant integration
+  README, in English and Romanian, and to its HACS `info.md`.
+- [x] Keep the cross-references documentation-only. The two projects remain
+  independently deployable, with no runtime, build, or test dependency.
 
 ## Explicit non-goals for v0.1.0
 

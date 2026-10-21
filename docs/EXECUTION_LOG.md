@@ -360,3 +360,29 @@ Commands run from the project working directory with Python 3.11.17 and
   `STPT_MCP_RUN_NETWORK_TESTS=1 uv run pytest -m network`; it passed
   (**1 passed, 211 deselected**) against the live STPT live, alerts, and
   vehicles endpoints.
+
+## 2026-10-21 — v0.3.3 documentation release
+
+- Added `assets/chat-arrivals.png`, a chat screenshot of the MCP tools
+  answering an arrival question, and a "Related projects" section in the
+  README that points to the Home Assistant integration and the Inky pHAT
+  dashboard.
+- Checked the screenshot for personal data before publishing it. A high-pass
+  filter over the full frame confirmed the frame contains only the chat
+  content and the messenger wallpaper, with no phone number, watermark, or PNG
+  text metadata.
+- Added the matching cross-references to the Home Assistant integration
+  repository: the English README, the Romanian README, and the HACS `info.md`,
+  each with the same screenshot and a link back to this repository.
+- Included `assets/` in the source distribution so the README image resolves
+  from the published sdist.
+- Relaxed the `AGENTS.md` rule that forbade touching `stpt-ha-integration` so
+  it now forbids a dependency rather than a documentation cross-reference. The
+  two projects stay independently deployable.
+- Bumped the package version to 0.3.3 and refreshed the documented release
+  artifact references.
+- Verification for v0.3.3: Ruff format/lint passed; strict MyPy passed; pytest
+  reported **211 passed, 1 deselected** at **91.30%** coverage; Bandit reported
+  no issues; pip-audit found no known vulnerabilities in the auditable
+  dependencies; and `uv build` produced the `stpt_mcp-0.3.3` wheel and sdist
+  with the asset present.

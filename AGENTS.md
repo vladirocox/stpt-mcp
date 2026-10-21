@@ -6,7 +6,10 @@ public transport in Timișoara. It is deliberately independent of Home Assistant
 ## Non-negotiable constraints
 
 - Do not add a Home Assistant or HACS dependency.
-- Do not modify or depend on `stpt-ha-integration`.
+- Do not depend on `stpt-ha-integration` at runtime, in the build, or in the test
+  suite. The two projects stay independently deployable.
+- Cross-references between the two READMEs are allowed and expected. Keep them
+  documentation-only: a link, a short description, and shared artwork.
 - CI and the default test suite must never contact live STPT services.
 - Do not remove provenance, stale-data signalling, or structured errors.
 - Preserve these cache invariants:

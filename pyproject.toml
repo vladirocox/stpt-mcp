@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "stpt-mcp"
-version = "0.3.2"
+version = "0.3.3"
 description = "An unofficial MCP server for STPT public transport in Timișoara"
 readme = "README.md"
 license = { file = "LICENSE" }
@@ -58,6 +58,7 @@ packages = ["src/stpt_mcp"]
 
 [tool.hatch.build.targets.sdist]
 include = [
+  "/assets",
   "/src",
   "/tests",
   "/deploy",

@@ -11,6 +11,15 @@ offline stop/route index to MCP clients over **stdio** or **Streamable HTTP**.
 > Timișoara municipality. Upstream data is used with caching and conservative
 > request limits. Do not use it for safety-critical decisions.
 
+## In action
+
+![An assistant answering "when does the 14 get to Piata Marasti?" with the stpt MCP tools](assets/chat-arrivals.png)
+
+Ask in plain language. The assistant calls `search_stops` to resolve the stop,
+then `get_arrivals` for the departures, and answers with the next bus. The same
+tools work from any MCP client — Claude, Hermes, Cursor, or an agent of your
+own.
+
 ## Highlights
 
 - Seven read-only MCP tools with typed output schemas.
@@ -47,7 +56,7 @@ Or from a wheel/sdist:
 ```bash
 python -m venv .venv
 . .venv/bin/activate
-pip install dist/stpt_mcp-0.3.2-py3-none-any.whl
+pip install dist/stpt_mcp-0.3.3-py3-none-any.whl
 stpt-mcp --version
 ```
 
@@ -254,6 +263,19 @@ STPT_MCP_RUN_NETWORK_TESTS=1 uv run pytest -m network
 
 See [Testing](docs/TESTING.md), [Architecture](docs/ARCHITECTURE.md), and
 [Contributing](CONTRIBUTING.md).
+
+## Related projects
+
+The same STPT data, exposed for different runtimes. If one of these fits your
+setup, the others probably do too.
+
+| Project | Runtime | Use it for |
+| --- | --- | --- |
+| **STPT MCP** (this repo) | Any MCP client | Talking to your transport data |
+| [STPT Transit](https://github.com/vladirocox/stpt-ha-integration) | Home Assistant | Automations, sensors, and dashboards |
+| [Inky pHAT](https://github.com/vladirocox/inkystpt) | Raspberry Pi | A glanceable e-ink departures display |
+
+All three are unofficial and are not affiliated with STPT.
 
 ## Limitations
 
