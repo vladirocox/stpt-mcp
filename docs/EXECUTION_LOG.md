@@ -140,6 +140,37 @@ Commands run from `/home/vlad/Documents/stpt-mcp` with Python 3.11.17 and
   0 issues, pip-audit found no known vulnerabilities, and `uv build` produced
   `stpt_mcp-0.2.0` wheel and sdist.
 
+## 2026-10-21 — deployment to debian-hp (v0.2.0)
+
+- CI for commit `4f99792` passed all jobs: Python 3.11, 3.12, 3.13, security,
+  build, and container (run `39590112771`).
+- Installed the `main` checkout in `/opt/stpt-mcp` on `debian-hp` under Python
+  3.13.5 with a dedicated `.venv`.
+- Created `stpt-mcp.service` running as `vladirocox`, enabled at boot. It binds
+  `0.0.0.0:9000`, uses `STPT_MCP_ALLOWED_HOSTS` for `vladiro.go.ro`,
+  `188.27.183.212`, the LAN addresses, `localhost`, and `127.0.0.1`, and reads
+  the bearer token from root-only `/etc/stpt-mcp.env`.
+- Opened TCP 9000 in `ufw`; the existing router forwarding for port 9000 was
+  confirmed by reaching the service through the public hostname.
+- Verification:
+  - `http://vladiro.go.ro:9000/healthz` returned HTTP 200
+    `{"status":"ok","service":"stpt-mcp","version":"0.2.0"}`; the same request
+    also succeeded through an external reader.
+  - MCP `initialize` without a token returned 401; a wrong token returned 401;
+    the configured token returned 200.
+  - The official MCP client negotiated protocol `2026-07-28`, listed all seven
+    tools, resolved stop 85 (`Catedrala Mitropolitană`), returned three live
+    arrivals with `source=live`, `stale=false`, and reported the service ready
+    with feed `4.28`.
+  - A service restart preserved the token and authentication behavior; the
+    unit is `enabled` and `active`.
+- Added `/home/vladirocox/STPT_MCP_REMOVAL.md` with stop/disable, unit removal,
+  token removal, installation deletion, `ufw` rollback, router-forwarding
+  rollback, and verification commands.
+- The endpoint uses plain HTTP on port 9000. The bearer token should be treated
+  as sensitive; TLS via a reverse proxy is recommended if the endpoint is kept
+  public long-term.
+
 ## Environment limitations
 
 - Docker/Podman is unavailable locally. Local `docker build`, `docker run`, and
