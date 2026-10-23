@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import pytest
@@ -14,7 +14,7 @@ from stpt_mcp.providers.base import LiveArrival, ProviderResult
 from stpt_mcp.providers.live import parse_live_arrivals
 from tests.support import load_json
 
-FETCHED_AT = datetime(2026, 10, 21, 10, 30, tzinfo=UTC)
+FETCHED_AT = datetime(2026, 10, 21, 10, 30, tzinfo=UTC)  # 13:30 in Bucharest
 
 
 def parse(raw: Any, network: NetworkIndex) -> ProviderResult[tuple[LiveArrival, ...]]:
@@ -25,6 +25,8 @@ def test_parses_fixture(network: NetworkIndex) -> None:
     result = parse(load_json("live_85.json"), network)
     assert result.fetched_at == FETCHED_AT
     assert result.complete is True
+    assert result.stale is False
+    assert result.observed_at == FETCHED_AT
     assert result.warnings == ("Removed 1 duplicate live arrival record(s).",)
     assert [(arrival.line, arrival.eta_minutes) for arrival in result.value] == [
         ("7", 3),
@@ -33,7 +35,7 @@ def test_parses_fixture(network: NetworkIndex) -> None:
         ("7", 10),
     ]
     assert all(arrival.mode is VehicleMode.TRAM for arrival in result.value)
-    assert result.value[0].arrival_time == "14:03"
+    assert result.value[0].feed_time == "13:33"
     assert result.value[0].vehicle_id == "3512"
 
 
@@ -104,7 +106,7 @@ def test_time_entry_objects(network: NetworkIndex) -> None:
         ],
         network,
     )
-    assert [(arrival.arrival_time, arrival.eta_minutes) for arrival in result.value] == [
+    assert [(arrival.feed_time, arrival.eta_minutes) for arrival in result.value] == [
         ("14:20", 0),
         ("14:10", 10),
         (None, 25),
@@ -138,7 +140,7 @@ def test_negative_eta_is_clamped_and_times_validated(network: NetworkIndex) -> N
         ],
         network,
     )
-    assert [(arrival.arrival_time, arrival.eta_minutes) for arrival in result.value] == [
+    assert [(arrival.feed_time, arrival.eta_minutes) for arrival in result.value] == [
         ("07:05", 0),
         (None, 5),
     ]
@@ -158,3 +160,96 @@ def test_unknown_route_mode_is_unknown(network: NetworkIndex) -> None:
         network,
     )
     assert result.value[0].mode is VehicleMode.UNKNOWN
+
+
+def test_frozen_feed_is_not_labelled_live(network: NetworkIndex) -> None:
+    fetched_at = datetime(2026, 10, 23, 9, 2, tzinfo=UTC)  # 12:02 local
+    result = parse_live_arrivals(
+        [
+            {
+                "route": "14",
+                "type": "tv",
+                "destination": "Gheorghe Barițiu",
+                "times": ["16:10|10", "16:26|26"],
+            }
+        ],
+        fetched_at=fetched_at,
+        network=network,
+    )
+    assert result.stale is True
+    assert result.observed_at is None
+    assert [arrival.eta_minutes for arrival in result.value] == [10, 26]
+    assert any("look stale" in warning for warning in result.warnings)
+    assert any("16:00" in warning and "12:02" in warning for warning in result.warnings)
+
+
+def test_feed_without_a_clock_reference_is_unverified(network: NetworkIndex) -> None:
+    result = parse(
+        [{"route": "M32", "headsign": "Chișoda", "minutes": 7}],
+        network,
+    )
+    assert result.stale is False
+    assert result.observed_at is None
+    assert any("freshness cannot be verified" in warning for warning in result.warnings)
+
+
+@pytest.mark.parametrize(
+    ("fetched_at", "feed_time"),
+    [
+        # Summer time: Europe/Bucharest is UTC+3.
+        (datetime(2026, 7, 1, 9, 0, tzinfo=UTC), "12:10|10"),
+        # Winter time: Europe/Bucharest is UTC+2.
+        (datetime(2026, 12, 1, 10, 0, tzinfo=UTC), "12:10|10"),
+        # Spring-forward day: 03:00 jumps to 04:00 local.
+        (datetime(2026, 3, 29, 1, 0, tzinfo=UTC), "04:10|10"),
+        # Fall-back day, second pass through 03:xx (EET, fold=1).
+        (datetime(2026, 10, 25, 1, 30, tzinfo=UTC), "03:45|15"),
+        # Fall-back day, 23:50 EET, predictions after midnight.
+        (datetime(2026, 10, 25, 21, 50, tzinfo=UTC), "00:05|15"),
+        # Fall-back day, 00:30 EEST, after-midnight GTFS hour.
+        (datetime(2026, 10, 24, 21, 30, tzinfo=UTC), "24:40|10"),
+        # Spring-forward day, 23:50 EEST, predictions after midnight.
+        (datetime(2026, 3, 29, 20, 50, tzinfo=UTC), "00:05|15"),
+    ],
+)
+def test_daylight_saving_offsets_are_respected(
+    network: NetworkIndex, fetched_at: datetime, feed_time: str
+) -> None:
+    result = parse_live_arrivals(
+        [{"route": "2", "times": [feed_time], "destination": "X"}],
+        fetched_at=fetched_at,
+        network=network,
+    )
+    assert result.stale is False
+    assert result.observed_at == fetched_at
+
+
+def test_after_midnight_hour_anchors_to_the_next_day(network: NetworkIndex) -> None:
+    fetched_at = datetime(2026, 7, 1, 20, 55, tzinfo=UTC)  # 23:55 local
+    result = parse_live_arrivals(
+        [{"route": "2", "times": ["24:05|10"], "destination": "X"}],
+        fetched_at=fetched_at,
+        network=network,
+    )
+    assert result.stale is False
+    arrival = result.value[0]
+    assert arrival.feed_time == "24:05"
+    assert arrival.arrival_at == datetime(2026, 7, 1, 21, 5, tzinfo=UTC)  # 00:05 next day
+
+
+def test_midnight_crossing_uses_the_nearest_occurrence(network: NetworkIndex) -> None:
+    fetched_at = datetime(2026, 7, 1, 20, 50, tzinfo=UTC)  # 23:50 local
+    result = parse_live_arrivals(
+        [{"route": "2", "times": ["00:05|15"], "destination": "X"}],
+        fetched_at=fetched_at,
+        network=network,
+    )
+    assert result.stale is False
+    assert result.observed_at == fetched_at
+    assert result.value[0].arrival_at == datetime(2026, 7, 1, 21, 5, tzinfo=UTC)
+
+
+def test_eta_is_anchored_to_the_fetch_instant(network: NetworkIndex) -> None:
+    result = parse(load_json("live_85.json"), network)
+    for arrival in result.value:
+        assert arrival.arrival_at == FETCHED_AT + timedelta(minutes=arrival.eta_minutes)

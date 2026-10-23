@@ -38,7 +38,10 @@ Record actual test counts, coverage, and tool output summaries.
 
 ## 4. Package inspection
 
-- [ ] Wheel contains `stpt_mcp`, `network.json`, metadata, and entry point.
+- [ ] Wheel contains `stpt_mcp`, `network.json`, `timetable.json`, metadata, and
+      entry point.
+- [ ] The bundled network snapshot and timetable cover the release date and have
+      the same feed version (`get_service_status`, `scripts/generate_timetable.py`).
 - [ ] sdist contains source, tests, docs, examples, license, notice, and
       changelog.
 - [ ] No cache directories, coverage files, or secrets in either artifact.

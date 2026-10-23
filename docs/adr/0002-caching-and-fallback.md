@@ -28,13 +28,16 @@ Arrival fallback order:
 
 1. Fresh cached arrivals for the stop.
 2. Upstream live arrivals.
-3. Date-specific scraped schedule when live is empty or fails.
+3. Date-specific scraped schedule when live is empty or fails. (Since ADR 0005
+   the schedule is the bundled GTFS timetable, and live must also be verified
+   fresh.)
 4. Last-known-good arrivals during the stale window.
 5. A structured error envelope.
 
 The arrival cache is keyed by stop, not by optional line filter, so all clients
 at a stop share the same fetch. Filtering happens after retrieval. Schedule
-pages are cached by URL and date in addition to the stop/date schedule bundle.
+pages are cached by URL and date in addition to the stop/date schedule bundle
+(removed with the scraper in ADR 0005).
 
 ## Consequences
 

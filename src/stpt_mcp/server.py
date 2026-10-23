@@ -32,11 +32,14 @@ SERVER_INSTRUCTIONS = """\
 This server exposes read-only, unofficial STPT Timișoara transit information.
 
 Start with search_stops if you only know a stop name, or list_routes for lines.
-get_arrivals accepts a numeric STPT stop ID and prefers live predictions. When
-live data is empty or unavailable it may return a date-specific schedule
-fallback. Always inspect the top-level `status`, `provenance`, and `error`
-fields: status is "ok", "partial", or "error"; provenance identifies live,
-schedule, or bundled network data and flags stale data; error is structured.
+get_arrivals accepts a numeric STPT stop ID and prefers live predictions, but
+only when their freshness is verified against the real clock. Otherwise it
+returns departures from the bundled GTFS timetable for today. Always inspect the
+top-level `status`, `provenance`, and `error` fields: status is "ok", "partial",
+or "error"; provenance identifies live, schedule, or bundled network data, and
+`provenance.freshness` is "fresh" only for checked real-time data ("stale" or
+"unverified" otherwise); error is structured. An arrival is real-time only when
+its `live` field is true.
 
 Times use Europe/Bucharest local time. This project is not affiliated with STPT,
 and upstream availability or accuracy is not guaranteed. Do not use it for
@@ -153,9 +156,10 @@ def build_server(
         name="get_arrivals",
         title="Get STPT arrivals",
         description=(
-            "Get upcoming arrivals at an STPT stop. Live data is preferred; if it "
-            "is empty or unavailable, a date-specific schedule fallback is used. "
-            "Check provenance.fallback_reason and provenance.is_stale."
+            "Get upcoming arrivals at an STPT stop. Live data is used only when its "
+            "freshness is verified; otherwise departures come from the bundled GTFS "
+            "timetable. Check provenance.freshness, provenance.fallback_reason, and "
+            "each arrival's live flag."
         ),
         annotations=READ_ONLY,
     )

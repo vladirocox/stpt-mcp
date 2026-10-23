@@ -11,6 +11,82 @@ All notable changes are documented here. The format follows
 - Project logo: `assets/logo.svg` and a 512 px `assets/logo.png` (a bus in a
   round sign with live-signal waves, white on violet). It is original artwork,
   not STPT's logo, and is shown at the top of the README.
+## [0.3.7] - 2026-10-23
+
+### Fixed
+
+- The schedule fallback no longer scrapes `smtt.ro`, which refused connections and
+  made the fallback fail on every call. It now reads a bundled timetable
+  generated from STPT's official GTFS feed (the same feed version as the network
+  snapshot) and needs no network access.
+- `get_arrivals` no longer returns stale live predictions when no fallback is
+  available. Frozen minutes counted from the current time looked like real
+  arrivals; the list is now empty with a `data_stale` error.
+- A frozen live feed whose stale clock happens to match the current time is now
+  detected: a stop's implied clock must advance between fetches. A stop seen for
+  the first time while other stops look stale, and predictions without a clock,
+  are treated as unverified and never labelled live.
+- Last-known-good arrivals served after a refresh failure are no longer marked
+  `live: true`.
+- Vehicle positions with a timestamp ahead of the real clock are stale instead of
+  appearing zero seconds old.
+
+### Added
+
+- `provenance.freshness` (`fresh`, `stale`, `unverified`) on every tool result.
+  It is `fresh` only after an upstream observation time was checked against the
+  clock.
+- `get_service_status.live_feed`: the live feed's freshness, signed clock skew,
+  how long a stop's clock has stood still, and counts for recently fetched stops.
+- `fallback_reason: "live_predictions_unverified"`.
+- `scripts/generate_timetable.py` to rebuild the timetable from a GTFS zip.
+
+### Removed
+
+- The `smtt.ro` schedule scraper, the BeautifulSoup dependency, the
+  `schedule_pages` cache, and the `STPT_MCP_SCHEDULE_BASE_URL`,
+  `STPT_MCP_SCHEDULE_MAX_PAGES`, and `STPT_MCP_SCHEDULE_PAGE_CACHE_ENTRIES`
+  settings (now ignored).
+
+## [0.3.6] - 2026-10-23
+
+### Fixed
+
+- `get_arrivals` no longer returns a frozen ETA as live. The arrivals feed has no
+  observation timestamp, so the parser derives one from each prediction's
+  display time and remaining minutes. When that implied clock differs from the
+  real clock by more than `STPT_MCP_LIVE_CLOCK_SKEW_TOLERANCE_SECONDS`
+  (default 180 s), the feed is rejected, the schedule fallback is tried, and the
+  response reports `fallback_reason: "live_predictions_stale"` with a warning
+  naming both clocks.
+- `arrival_time` and `eta_minutes` are now derived from one instant anchored at
+  fetch time (`fetched_at + ETA`). They stay coherent on every call and the
+  countdown decreases while a cache entry is served instead of freezing.
+- `provenance.observed_at` is the derived upstream observation time for live
+  arrivals, and null when it cannot be derived or the feed is stale. It is never
+  set to the fetch time.
+- `provenance.data_age_seconds` measures the age of the upstream observation,
+  not the age of the fetch, and is null when unknown.
+- If the live feed is stale and the schedule fallback also fails, stale
+  predictions are returned as reference only: `is_stale: true`, `live: false` on
+  every arrival, and a `data_stale` error.
+- `get_vehicles` now sets `provenance.is_stale: true` when any returned vehicle
+  position is stale, matching the existing `data_stale` error and per-vehicle
+  flags.
+- Schedule tables with GTFS times at or after 24:00 (after-midnight service) are
+  now parsed and mapped to the next service day instead of being dropped.
+- The live parser also accepts after-midnight hour labels up to `29:xx`.
+
+### Added
+
+- A runtime consistency guard: if `arrival_time` and `eta_minutes` ever disagree
+  by more than 1.5 minutes, a warning is added to `provenance.warnings` instead
+  of silently returning contradictory data.
+- Regression tests with a controlled clock for frozen feeds, DST offsets
+  (summer, winter, and the spring-forward boundary), GTFS times after 24:00,
+  midnight crossings, ETA decreasing between calls, the arrival-time/ETA
+  invariant, and `data_age_seconds` tracking the observation rather than the
+  fetch.
 
 ## [0.3.5] - 2026-10-23
 

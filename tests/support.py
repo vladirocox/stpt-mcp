@@ -18,11 +18,13 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any, cast
 from urllib.parse import parse_qs, urlsplit
+from zoneinfo import ZoneInfo
 
 import httpx
 import uvicorn
 
 from stpt_mcp.config import Settings
+from stpt_mcp.providers.schedule import Timetable
 from stpt_mcp.service import TransitService
 from stpt_mcp.upstream import UpstreamClient
 
@@ -31,15 +33,6 @@ FIXED_NOW = datetime(2026, 10, 21, 10, 30, tzinfo=UTC)
 LIVE_URL = "https://live.test/proxy-smtt-cache.php"
 ALERTS_URL = "https://live.test/proxy-alerts.php"
 VEHICLES_URL = "https://live.test/gtfs-vehicles.php"
-SCHEDULE_BASE_URL = "https://smtt.test"
-
-SCHEDULE_PAGES = {
-    "/linie-transport-public-1/": "line-1.html",
-    "/linie-transport-public-2/": "line-2.html",
-    "/linie-transport-public-4-r/": "line-4-r.html",
-    "/linie-transport-public-7/": "line-7.html",
-    "/linie-transport-public-8/": "line-8.html",
-}
 
 
 def fixture_path(name: str) -> Path:
@@ -52,6 +45,40 @@ def load_text(name: str) -> str:
 
 def load_json(name: str) -> Any:
     return json.loads(load_text(name))
+
+
+def rebase_live_payload(payload: Any, *, now: datetime | None = None) -> Any:
+    """Return a live payload whose display times track ``now``.
+
+    Static fixtures are useful for deterministic unit tests, but a real feed
+    cannot stand still. The loopback e2e server rebases each ``HH:MM|minutes``
+    pair so the implied observation clock stays at the wall clock.
+    """
+
+    current = (now or datetime.now(UTC)).astimezone(ZoneInfo("Europe/Bucharest"))
+    for item in payload:
+        if not isinstance(item, dict):
+            continue
+        times = item.get("times")
+        if not isinstance(times, list):
+            continue
+        rebased: list[Any] = []
+        for entry in times:
+            if not isinstance(entry, str):
+                rebased.append(entry)
+                continue
+            _clock, separator, minutes_text = entry.partition("|")
+            if not separator:
+                rebased.append(entry)
+                continue
+            try:
+                eta = int(minutes_text)
+            except ValueError:
+                rebased.append(entry)
+                continue
+            rebased.append(f"{current + timedelta(minutes=eta):%H:%M}|{eta}")
+        item["times"] = rebased
+    return payload
 
 
 class MutableClock:
@@ -190,8 +217,8 @@ class FakeSTPT:
 ServiceFactory = Callable[..., Awaitable[tuple[TransitService, FakeSTPT]]]
 
 
-def seed_fake_stpt(fake: FakeSTPT, *, schedule_base_url: str = SCHEDULE_BASE_URL) -> FakeSTPT:
-    """Populate a fake with the deterministic arrivals, alerts, and schedules."""
+def seed_fake_stpt(fake: FakeSTPT) -> FakeSTPT:
+    """Populate a fake with the deterministic arrivals, alerts, and vehicles."""
 
     live_85 = load_json("live_85.json")
     live_60 = load_json("live_60.json")
@@ -207,8 +234,6 @@ def seed_fake_stpt(fake: FakeSTPT, *, schedule_base_url: str = SCHEDULE_BASE_URL
     fake.set_json_callback(LIVE_URL, live_payload)
     fake.set_json(ALERTS_URL, load_json("alerts.json"))
     fake.set_json(VEHICLES_URL, load_json("vehicles.json"))
-    for path, fixture in SCHEDULE_PAGES.items():
-        fake.set_text(f"{schedule_base_url}{path}", load_text(f"schedule/{fixture}"))
     return fake
 
 
@@ -221,7 +246,6 @@ def make_test_settings(**overrides: Any) -> Settings:
         "live_url": LIVE_URL,
         "alerts_url": ALERTS_URL,
         "vehicles_url": VEHICLES_URL,
-        "schedule_base_url": SCHEDULE_BASE_URL,
         "request_timeout_seconds": 1.0,
         "connect_timeout_seconds": 1.0,
         "max_retries": 2,
@@ -258,12 +282,14 @@ def make_service(
     clock: MutableClock,
     *,
     network: Any = None,
+    timetable: Timetable | None = None,
     sleep: Callable[[float], Awaitable[None]] = no_sleep,
 ) -> TransitService:
     upstream = make_upstream(settings, fake, clock, sleep=sleep)
     return TransitService(
         settings,
         network=network,
+        timetable=timetable,
         upstream=upstream,
         clock=clock.monotonic,
         wall_clock=clock.wall,
@@ -362,17 +388,13 @@ class FakeUpstreamHTTPServer:
         if route == "/proxy-smtt-cache.php":
             stop_id = (query.get("stopid") or [""])[0]
             payload = load_json(f"live_{stop_id}.json") if stop_id in {"85", "60"} else []
-            self._send_json(handler, payload)
+            self._send_json(handler, rebase_live_payload(payload))
             return
         if route == "/proxy-alerts.php":
             self._send_json(handler, load_json("alerts.json"))
             return
         if route == "/gtfs-vehicles.php":
             self._send_json(handler, load_json("vehicles.json"))
-            return
-        fixture = SCHEDULE_PAGES.get(route)
-        if fixture is not None:
-            self._send(handler, 200, "text/html; charset=utf-8", load_text(f"schedule/{fixture}"))
             return
         self._send(handler, 404, "text/plain; charset=utf-8", b"not found")
 

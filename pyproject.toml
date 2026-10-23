@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "stpt-mcp"
-version = "0.3.5"
+version = "0.3.7"
 description = "An unofficial MCP server for STPT public transport in Timișoara"
 readme = "README.md"
 license = { file = "LICENSE" }
@@ -25,7 +25,6 @@ classifiers = [
   "Typing :: Typed",
 ]
 dependencies = [
-  "beautifulsoup4>=4.13.4,<5",
   "httpx>=0.28.1,<1",
   "mcp>=2.3.0,<3",
   "pydantic>=2.12,<3",
@@ -50,7 +49,6 @@ dev = [
   "pytest-asyncio>=1.1,<2",
   "pytest-cov>=6.2,<8",
   "ruff>=0.12,<1",
-  "types-beautifulsoup4>=4.12.0.20250516",
 ]
 
 [tool.hatch.build.targets.wheel]
@@ -107,10 +105,6 @@ warn_unreachable = true
 plugins = ["pydantic.mypy"]
 files = ["src", "tests"]
 exclude = ["tests/fixtures"]
-
-[[tool.mypy.overrides]]
-module = ["bs4.*"]
-ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

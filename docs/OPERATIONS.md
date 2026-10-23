@@ -17,7 +17,7 @@ operational data.
 The CLI logs to stderr. A normal local HTTP start looks like:
 
 ```text
-... INFO stpt_mcp.cli: starting stpt-mcp 0.3.5 over streamable HTTP on 127.0.0.1:8000/mcp
+... INFO stpt_mcp.cli: starting stpt-mcp 0.3.7 over streamable HTTP on 127.0.0.1:8000/mcp
 ```
 
 If HTTP binds to a non-loopback address without a static token or OAuth, the
@@ -103,7 +103,6 @@ Caches are bounded by entry count, but values vary in size (especially schedule
 snapshots). Watch process RSS under real traffic. If memory is a concern:
 
 - lower `STPT_MCP_MAX_CACHE_ENTRIES`;
-- lower `STPT_MCP_SCHEDULE_PAGE_CACHE_ENTRIES`;
 - lower `STPT_MCP_SCHEDULE_LOOKAHEAD_MINUTES`;
 - run one process per container rather than many workers.
 
@@ -136,5 +135,10 @@ after restart. No persistent state needs flushing.
 4. Check upstream reachability from the host.
 5. Check proxy Host/Origin configuration if requests are rejected with 403/421.
 6. Check auth configuration if requests return 401.
-7. If only schedule fallback fails, inspect SMTT HTML changes.
-8. If only the network snapshot is stale, schedule a snapshot update release.
+7. If arrivals come from the schedule with `live_predictions_stale` or
+   `live_predictions_unverified`, read `live_feed` in `get_service_status`: a
+   large `skew_seconds` or growing `clock_unchanged_seconds` across many
+   `recent_stops` means the upstream feed is frozen, not this server.
+8. If the schedule fallback reports `schedule_unavailable` for a date outside
+   the timetable range, schedule a data update release.
+9. If only the network snapshot is stale, schedule a snapshot update release.

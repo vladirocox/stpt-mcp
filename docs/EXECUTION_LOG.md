@@ -414,3 +414,88 @@ intentionally not recorded in this public log.
   `twine check --strict` passed for both; a scan of both artifacts found no
   deployment hostnames, addresses, or paths; the metadata and `LICENSE` name
   `Vlad Ohai`.
+
+## 2026-10-23 — v0.3.6 release check
+
+- Verified from a fresh session: tag `v0.3.6` points at the PR #19 merge commit;
+  the GitHub release carries the wheel and sdist; the `Publish` workflow run
+  succeeded; PyPI serves 0.3.6 and `pip install stpt-mcp==0.3.6` in a fresh
+  virtual environment reports 0.3.6. The deployed wheel's SHA-256 equals the
+  PyPI wheel's.
+
+## 2026-10-23 — v0.3.7 investigation
+
+- The live arrivals endpoint was frozen on every sampled stop: 57 of 64 stops
+  returned byte-identical payloads 3.5 minutes apart (7 were empty), each with
+  its own stale implied clock between 12:48 and 23:33 local. Stop 135 showed line
+  14 at `16:10|10, 16:26|26, 16:32|32, 16:33|33` from at least 12:55 to 13:29,
+  an implied clock of 16:00.
+- Vehicle positions were current: 131 vehicles, median age 28 s, and the feed's
+  own `is_stale` was false.
+- `smtt.ro` refused TCP connections from two independent networks, so every
+  schedule page load failed. The official GTFS zip was obtained from the
+  Mobility Database mirror (`mdb-2868`, SHA-256 `3408e0c3…`); it is feed 4.28,
+  identical in version, service range, and trip count to `network.json`, and
+  all 13 530 trips follow the snapshot's shapes exactly.
+- Reference check: on 2026-10-23 around 12:55 a map service showed line 14 at
+  Piața Mărăști at 12:57. The GTFS timetable lists 12:59 (trip
+  `14.1_WDSC_T_04_08`), a 2-minute difference; the frozen feed implied 13:05.
+- No GTFS-Realtime feed for Timișoara was found (Mobility Database catalogue,
+  `live.stpt.ro` assets).
+- An adversarial multi-agent review of the change confirmed eight defects, all
+  fixed with tests: a frozen clock read one day later counted as progress (false
+  fresh); DST-night display times resolved with the wrong offset (false stale);
+  cached predictions already past showed as due now; the timetable's last-day
+  after-midnight trips were lost; the stdio e2e test would fail after the
+  timetable expires; three documentation inaccuracies.
+- A second review round over those fixes confirmed five more, all fixed with
+  tests: a jump's suspicion lasted only one fetch, so a frozen stop came back as
+  fresh; a frozen clock read exactly one day later matched elapsed time; a
+  one-minute step back of the median counted as a jump; a non-retryable
+  timetable gap hid a retryable live outage; the timetable's last day gave no
+  warning that later days are missing.
+- A third round, focused on the clock tracking, confirmed three more, all fixed
+  with tests: an identical frozen reading resolved an hour apart across the DST
+  fold looked like progress; a response without display times erased a stop's
+  suspicion; a stop once not fresh and queried only every 12 hours stayed
+  unverified forever on a healthy feed.
+- A fourth round over the committed branch confirmed two more, fixed with tests:
+  a stop that froze after running accepted a swapped snapshot matching the
+  clock as progress; a frozen stop polled all day lost its history at a 12-hour
+  comparability reset and was labelled fresh once a day. Comparability now uses
+  the gap between fetches and readings compare as times of day.
+- Local verification: Ruff format/lint passed; strict MyPy passed; pytest
+  reported **246 passed, 1 skipped** (247 collected, up from 226 in 0.3.6);
+  coverage **91.7%**; Bandit reported no issues; pip-audit found no known
+  vulnerabilities; `uv build` and `twine check --strict` passed. Reverting each fix individually made its
+  targeted tests fail (frozen-clock detector, clock jump, DST resolution,
+  unverified-as-live, withholding, future vehicle timestamps, stale-cache live
+  flag, past live and schedule departures, timetable grace day).
+
+## 2026-10-23 — v0.3.7 published and deployed
+
+- PR [#21](https://github.com/vladirocox/stpt-mcp/pull/21) merged after the
+  required checks passed (tests on Python 3.11–3.13, security, build,
+  container); no protection bypass was used. Tag `v0.3.7` points at the merge
+  commit `01db5c1`.
+- The [v0.3.7 release](https://github.com/vladirocox/stpt-mcp/releases/tag/v0.3.7)
+  ran the `Publish` workflow (run 39981963172): build, PyPI upload through
+  trusted publishing, and release assets all succeeded. PyPI serves
+  <https://pypi.org/project/stpt-mcp/0.3.7/> (wheel SHA-256 `f3452000…`);
+  `pip install stpt-mcp==0.3.7` in a fresh Python 3.12 environment reports
+  0.3.7, includes the timetable, and no longer installs BeautifulSoup.
+- The self-hosted deployment was upgraded from 0.3.6 after backing up its
+  virtual environment: the PyPI wheel was downloaded, its SHA-256 compared with
+  PyPI's, and installed; the service restarted cleanly with no errors logged.
+  Health and MCP calls succeeded on the host and through the public HTTPS
+  endpoint.
+- Live check after the upstream feed recovered (it alternated between working
+  and HTTP 503): `get_arrivals(stop_id="135", line="14")` returned
+  `source: live`, `freshness: fresh` at 19:00:14 (skew −14 s: 19:02/2,
+  19:20/20, 19:35/35 min) and again at 19:17:46 (skew +14 s: 19:18/1,
+  19:35/18, 19:51/34), so the 19:35 trip counted down from 35 to 18 minutes and
+  `arrival_time - now` matched `eta_minutes` both times. During the 503 periods
+  the same call returned the timetable (`partial`, `upstream_http_error`,
+  `source: schedule`, `live: false`; 19:07, 19:21, 19:36, … for line 14,
+  identical to the GTFS `stop_times`), counting down minute by minute.
+

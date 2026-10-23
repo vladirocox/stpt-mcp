@@ -1,6 +1,6 @@
 # ADR 0003: Date- and shape-aware schedule scraping
 
-- Status: Accepted
+- Status: Superseded by [ADR 0005](0005-offline-timetable-and-verified-freshness.md)
 - Date: 2026-10-21
 
 ## Context

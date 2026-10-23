@@ -34,11 +34,18 @@ Every result includes:
   "fetched_at": "2026-10-21T10:30:00Z",
   "observed_at": "2026-10-21T10:30:00Z",
   "is_stale": false,
+  "freshness": "fresh",
   "data_age_seconds": 0.0,
   "fallback_reason": null,
   "warnings": []
 }
 ```
+
+`freshness` is `fresh` only when an upstream observation time was checked
+against the server's clock and passed; `stale` when the check failed or stale
+cached data is served (`is_stale` is then true); `unverified` when the data has
+no clock reference (schedules, network data, alerts). It defaults to
+`unverified`, so nothing is called fresh without a check.
 
 Times are ISO 8601 UTC. Display times such as `arrival_time` are local
 `Europe/Bucharest` `HH:MM` strings and are not guaranteed timestamps.
@@ -92,17 +99,35 @@ Return upcoming arrivals at a stop, preferring live data.
 Selection order:
 
 1. fresh cached arrivals for the stop;
-2. live predictions;
-3. date-specific schedule fallback;
+2. live predictions whose freshness was verified (`freshness: "fresh"`);
+3. the bundled GTFS timetable for the local service date;
 4. last-known-good data within the stale window;
 5. structured error.
+
+A live payload whose implied observation time is more than
+`STPT_MCP_LIVE_CLOCK_SKEW_TOLERANCE_SECONDS` away from the fetch time, or whose
+clock for that stop has stood still for longer than that tolerance, is stale:
+`fallback_reason: "live_predictions_stale"`. Predictions with no display time,
+or a stop seen for the first time while other stops recently looked stale, are
+unverified: `fallback_reason: "live_predictions_unverified"`. Either way the
+server uses the timetable. If the timetable is unavailable too, the predictions
+are withheld: `arrivals` is empty and the error is `data_stale`. Unverified
+minutes counted from now would look like real arrivals, so they are never
+returned.
 
 The arrivals cache is keyed by stop, so a line filter does not multiply upstream
 requests. Filtering and limiting happen after retrieval.
 
 An arrival contains line, destination, direction, mode, ETA minutes, local
-display time, `live`, and optional vehicle/shape IDs. Schedule arrivals have
+display time, `live`, and optional vehicle/shape IDs. `live` is true only in a
+`fresh` envelope; schedule arrivals and last-known-good cached predictions have
 `live: false`.
+
+`arrival_time` and `eta_minutes` are derived from one anchored instant on every
+call, so the countdown keeps decreasing while a cache entry is served and the
+two fields always agree within one minute. `data_age_seconds` measures the age
+of the upstream observation, not the age of the cache entry; it is null when no
+observation time can be derived.
 
 `lookahead_minutes` reports the schedule lookahead used when fallback runs.
 
@@ -153,6 +178,7 @@ display time, `live`, and optional vehicle/shape IDs. Schedule arrivals have
     "fetched_at": "2026-10-21T10:30:00Z",
     "observed_at": null,
     "is_stale": false,
+    "freshness": "unverified",
     "data_age_seconds": 0.0,
     "fallback_reason": "live_returned_no_departures",
     "warnings": ["Live endpoint returned no predictions; trying the schedule."]
@@ -161,13 +187,50 @@ display time, `live`, and optional vehicle/shape IDs. Schedule arrivals have
   "stop_name": "Piața Sfânta Maria",
   "line_filter": null,
   "lookahead_minutes": 180,
-  "count": 9,
+  "count": 10,
   "arrivals": []
 }
 ```
 
 `arrivals` is abbreviated. Fallback reasons are
-`live_returned_no_departures` and `live_unavailable`.
+`live_returned_no_departures`, `live_unavailable`, `live_predictions_stale`, and
+`live_predictions_unverified`. `fetched_at` of a schedule result is the
+timetable's generation time.
+
+### Example: frozen live feed, schedule fallback
+
+```json
+{
+  "status": "ok",
+  "error": null,
+  "provenance": {
+    "source": "schedule",
+    "fetched_at": "2026-10-23T10:30:00Z",
+    "observed_at": null,
+    "is_stale": false,
+    "freshness": "unverified",
+    "data_age_seconds": 0.0,
+    "fallback_reason": "live_predictions_stale",
+    "warnings": [
+      "Live predictions are stale; trying the schedule fallback.",
+      "Live predictions look stale: the feed implies 16:00 local while the current time is 12:55 (+185 min)."
+    ]
+  },
+  "stop_id": "135",
+  "line_filter": "14",
+  "count": 10,
+  "arrivals": [
+    {"line": "14", "destination": "Ion Ionescu de la Brad", "direction": "tur",
+     "mode": "trolleybus", "eta_minutes": 4, "arrival_time": "12:59",
+     "live": false, "vehicle_id": null, "shape_id": "14.1_T"}
+  ]
+}
+```
+
+`arrivals` is abbreviated. If the timetable is unavailable too, the same call
+returns `status: "partial"`, `source: "live"`, `is_stale: true`,
+`freshness: "stale"`, `observed_at: null`, `data_age_seconds: null`, an empty
+`arrivals` list, and an error with code `data_stale`.
 
 ## `get_alerts`
 
@@ -196,13 +259,26 @@ Return current vehicle positions.
 
 Each vehicle includes coordinates, line, direction, headsign, bearing, speed,
 current stop, accessibility, route/trip/shape IDs, upstream `observed_at`, age,
-and `is_stale`. Vehicles older than the configured threshold are flagged. If some
-or all are stale, the envelope is `partial` with `data_stale`.
+and `is_stale`. Vehicles older than the configured threshold, without a
+timestamp, or with a timestamp ahead of the clock by more than the skew tolerance
+are flagged. If some or all are stale, the envelope is `partial` with
+`data_stale` and `freshness: "stale"`; otherwise it is `fresh`.
+
+Alerts have no upstream timestamp, so their `freshness` is always `unverified`
+(or `stale` when a cached copy is served after a refresh failure).
 
 ## `get_service_status`
 
 Return readiness, version, timezone, current time, start time, network feed
-version/generation/service range, and cache statistics. It contains no secrets.
+version/generation/service range, cache statistics, and `live_feed`. It contains
+no secrets.
+
+`live_feed` is null until a stop has been fetched. Otherwise it reports the last
+stop fetched (`stop_id`, `assessed_at`), its `freshness`, `skew_seconds` (the
+feed's implied clock minus the real clock; positive means ahead),
+`clock_unchanged_seconds` (how long that stop's feed clock has stood still), and
+`recent_stops`, the freshness counts of every stop fetched in the last 15
+minutes. Many `stale` stops mean the upstream feed is frozen.
 
 | Argument | Type | Default |
 | --- | --- | --- |
@@ -242,9 +318,9 @@ snapshot stores them for internal lookups, but no tool returns them.
 | `upstream_rate_limited` | HTTP 429 after retry policy. |
 | `upstream_invalid_response` | Malformed JSON/HTML or unusable records. |
 | `upstream_response_too_large` | Response exceeded the configured byte cap. |
-| `schedule_unavailable` | No schedule targets/pages or all pages failed. |
+| `schedule_unavailable` | The stop has no scheduled shapes, or the date is outside the bundled timetable. |
 | `network_stale` | Bundled snapshot is outside its service range. |
-| `data_stale` | Data is older than the freshness threshold. |
+| `data_stale` | Data failed the freshness check (old, skewed, frozen, or unverifiable with no fallback). |
 | `internal_error` | Unexpected server fault; message is non-sensitive. |
 
 `retryable` indicates whether a later call may succeed. Clients should inspect

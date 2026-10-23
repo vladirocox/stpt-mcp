@@ -74,7 +74,7 @@ Or from a wheel/sdist:
 ```bash
 python -m venv .venv
 . .venv/bin/activate
-pip install dist/stpt_mcp-0.3.5-py3-none-any.whl
+pip install dist/stpt_mcp-0.3.7-py3-none-any.whl
 stpt-mcp --version
 ```
 
@@ -259,11 +259,17 @@ configurable. See [Configuration](https://github.com/vladirocox/stpt-mcp/blob/ma
 ## How data selection works
 
 1. A fresh cached arrival snapshot for the stop is returned with no request.
-2. Otherwise live predictions are fetched. Non-empty live data wins.
-3. If live is empty or unavailable, the date-specific schedule is scraped.
+2. Otherwise live predictions are fetched. They are used only if their freshness
+   is verified against the real clock: the feed's implied clock must match it,
+   must not stand still across fetches, and must move with real time.
+3. If live is empty, unavailable, stale, or unverified, the departures come from
+   the bundled GTFS timetable for the local service date (`source: "schedule"`,
+   `live: false`). No website is contacted for this.
 4. If the refresh fails, last-known-good data may be served inside the stale
    window.
-5. If no usable data remains, the tool returns a structured error.
+5. If no usable data remains, the tool returns a structured error. Stale or
+   unverified live predictions are never returned as arrivals, because frozen
+   minutes counted from now look like real departures.
 
 `provenance.source` identifies `live`, `schedule`, or `network` data;
 `provenance.is_stale` and `data_age_seconds` quantify freshness;
@@ -313,9 +319,13 @@ All three are unofficial and are not affiliated with STPT.
 
 - Upstream endpoints are unofficial public interfaces and may change without
   notice.
-- Schedule scraping depends on current SMTT HTML structure.
-- The bundled network snapshot is a point-in-time GTFS-derived artifact; its
-  feed version and service range are exposed by `get_service_status`.
+- The bundled network snapshot and timetable are point-in-time GTFS-derived
+  artifacts that end on 2026-12-31; after that the schedule fallback reports
+  `schedule_unavailable` until a release regenerates them. The feed version and
+  service range are exposed by `get_service_status`.
+- STPT's live arrivals feed carries no timestamps. Freshness is inferred from its
+  display times, so the first fetch of a stop after a restart cannot prove the
+  feed is running.
 - Each process has its own in-memory cache; multi-worker deployments do not
   share entries.
 - OAuth is single-owner and keeps tokens in memory; a restart requires clients
