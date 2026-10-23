@@ -27,7 +27,7 @@ service.py ── orchestration, filters, provenance, fallback
    ├── upstream.py ── HTTPX client, retries, backoff, concurrency cap
    └── providers/
         ├── live.py       live arrivals JSON
-        ├── schedule.py   SMTT HTML schedule pages
+        ├── schedule.py   bundled GTFS timetable (offline)
         ├── alerts.py     service alerts JSON
         └── vehicles.py   vehicle positions JSON
 ```
@@ -44,25 +44,31 @@ concurrency limiting around the SDK's Streamable HTTP ASGI app.
    retrieval so all clients at a stop share one snapshot.
 3. A fresh entry returns immediately. Concurrent misses for the same key await a
    single shared loader task.
-4. The loader fetches live arrivals. A non-empty, valid live response wins.
-5. If live is empty or fails, the schedule provider selects current
-   line/direction pages from the stop's shapes and requests the local service
-   date.
+4. The loader fetches live arrivals. They win only if their freshness is
+   verified: the feed's implied clock is within tolerance of the real clock and
+   is not standing still across fetches of that stop (`providers/live.py`).
+5. If live is empty, fails, or is stale or unverified, the schedule provider
+   expands the bundled GTFS timetable for the stop's shapes on the previous,
+   current, and next local service days. No network request is made. If the
+   timetable is unavailable too, stale or unverified predictions are withheld.
 6. Schedule entries are filtered to the lookahead window and converted to ETA
-   minutes at response time.
+   minutes at response time; cached live predictions more than a minute past
+   are dropped.
 7. If a refresh fails but a last-known-good snapshot is inside its stale window,
-   that snapshot is returned with `is_stale: true` and the refresh error.
+   that snapshot is returned with `is_stale: true`, `live: false` on every
+   arrival, and the refresh error.
 8. If no data is usable, a structured error envelope is returned.
 
-The schedule bundle is cached per `(stop_id, service_date)`. HTML pages are cached
-per `(URL, service_date)` and shared across stops that use the same line page.
+The schedule bundle is cached per `(stop_id, service_date)`.
 
 ### Alerts, vehicles, and status
 
 Alerts and vehicles are cached globally, then filtered by stop/line at response
 time. Alert active periods are evaluated at the current instant in the configured
 timezone. Vehicle staleness is derived from the upstream observation timestamp,
-not from cache age. `get_service_status` reads cache counters and feed metadata;
+not from cache age; a timestamp ahead of the clock is stale, not fresh.
+`get_service_status` reads cache counters, feed metadata, and the live feed's
+freshness assessment;
 it never exposes tokens or request headers.
 
 ## Caches
@@ -71,11 +77,10 @@ it never exposes tokens or request headers.
 | --- | --- | --- | --- |
 | `arrivals` | stop ID | 60 s | 15 min |
 | `schedules` | stop ID + service date | 1 h | 6 h |
-| `schedule_pages` | URL + service date | 1 h | 6 h |
 | `alerts` | singleton | 45 s | 10 min |
 | `vehicles` | singleton | 60 s | 10 min |
 
-All caches are bounded (`max_cache_entries`, `schedule_page_cache_entries`) and
+All caches are bounded (`max_cache_entries`) and
 evict least-recently-used entries. The cache clears expired-stale entries lazily.
 `get_service_status` reports hits, misses, coalesced waits, stale hits, evictions,
 loads, failures, and in-flight loads per cache.

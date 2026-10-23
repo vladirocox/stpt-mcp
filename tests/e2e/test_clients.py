@@ -7,7 +7,10 @@ import os
 import socket
 import subprocess
 import sys
+from datetime import datetime, timedelta
 from pathlib import Path
+from typing import Any
+from zoneinfo import ZoneInfo
 
 import httpx
 import pytest
@@ -16,6 +19,7 @@ from mcp.client import streamable_http
 from mcp.shared._httpx_utils import create_mcp_http_client
 
 from stpt_mcp.http_app import create_http_app
+from stpt_mcp.providers.schedule import load_timetable
 from tests.support import (
     FakeSTPT,
     FakeUpstreamHTTPServer,
@@ -38,7 +42,6 @@ def subprocess_env(upstream: FakeUpstreamHTTPServer) -> dict[str, str]:
             "STPT_MCP_LIVE_URL": f"{base}/proxy-smtt-cache.php",
             "STPT_MCP_ALERTS_URL": f"{base}/proxy-alerts.php",
             "STPT_MCP_VEHICLES_URL": f"{base}/gtfs-vehicles.php",
-            "STPT_MCP_SCHEDULE_BASE_URL": base,
             "STPT_MCP_MAX_RETRIES": "1",
             "STPT_MCP_BACKOFF_BASE_SECONDS": "0.001",
             "NO_COLOR": "1",
@@ -66,6 +69,17 @@ async def wait_for_health(url: str, *, attempts: int = 200) -> None:
     raise AssertionError("server did not become healthy")
 
 
+def assert_schedule_fallback(content: dict[str, Any] | None) -> None:
+    """These subprocess tests use the real clock, so honour the timetable's expiry."""
+
+    assert content is not None
+    today = datetime.now(ZoneInfo("Europe/Bucharest")).date()
+    if today > load_timetable().end + timedelta(days=1):
+        assert content["error"]["code"] == "schedule_unavailable"
+    else:
+        assert content["provenance"]["source"] == "schedule"
+
+
 @pytest.mark.e2e
 async def test_stdio_client_end_to_end() -> None:
     with FakeUpstreamHTTPServer() as upstream:
@@ -89,7 +103,7 @@ async def test_stdio_client_end_to_end() -> None:
             fallback = await client.call_tool("get_arrivals", {"stop_id": "59"})
             assert fallback.structured_content is not None
             assert fallback.structured_content["stop_id"] == "59"
-            assert fallback.structured_content["provenance"]["source"] == "schedule"
+            assert_schedule_fallback(fallback.structured_content)
             assert fallback.structured_content["count"] == len(
                 fallback.structured_content["arrivals"]
             )
@@ -98,8 +112,8 @@ async def test_stdio_client_end_to_end() -> None:
             assert stop.structured_content is not None
             assert stop.structured_content["stop"]["name"] == "Catedrala Mitropolitană"
 
-        assert upstream.path_counts().get("/proxy-smtt-cache.php") == 2
-        assert upstream.path_counts().get("/linie-transport-public-2/") == 1
+        # The schedule fallback reads the bundled timetable, not the network.
+        assert upstream.path_counts() == {"/proxy-smtt-cache.php": 2}
 
 
 @pytest.mark.e2e
@@ -217,7 +231,7 @@ async def test_cli_http_subprocess() -> None:
                 assert result.structured_content["status"] == "ok"
                 fallback = await client.call_tool("get_arrivals", {"stop_id": "59"})
                 assert fallback.structured_content is not None
-                assert fallback.structured_content["provenance"]["source"] == "schedule"
+                assert_schedule_fallback(fallback.structured_content)
         finally:
             process.terminate()
             try:

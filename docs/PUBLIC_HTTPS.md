@@ -42,7 +42,7 @@ Install the release wheel:
 sudo -u stpt python3 -m venv /opt/stpt-mcp/.venv
 sudo -u stpt /opt/stpt-mcp/.venv/bin/pip install --upgrade pip
 sudo -u stpt /opt/stpt-mcp/.venv/bin/pip install \
-  "https://github.com/vladirocox/stpt-mcp/releases/download/v0.3.6/stpt_mcp-0.3.6-py3-none-any.whl"
+  "https://github.com/vladirocox/stpt-mcp/releases/download/v0.3.7/stpt_mcp-0.3.7-py3-none-any.whl"
 ```
 
 Or install the current source checkout:
@@ -86,7 +86,7 @@ your hostname:
 
 ```bash
 sudo curl -fsSL \
-  https://raw.githubusercontent.com/vladirocox/stpt-mcp/v0.3.6/deploy/stpt-mcp.service.example \
+  https://raw.githubusercontent.com/vladirocox/stpt-mcp/v0.3.7/deploy/stpt-mcp.service.example \
   -o /etc/systemd/system/stpt-mcp.service
 sudoedit /etc/systemd/system/stpt-mcp.service
 ```
@@ -258,7 +258,7 @@ curl -fsS https://mcp.example.com/healthz
 Expected:
 
 ```json
-{"status":"ok","service":"stpt-mcp","version":"0.3.6"}
+{"status":"ok","service":"stpt-mcp","version":"0.3.7"}
 ```
 
 Authentication:

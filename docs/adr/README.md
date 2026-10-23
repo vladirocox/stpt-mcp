@@ -7,8 +7,9 @@ accepted; supersede one with a new ADR rather than rewriting history.
 | --- | --- | --- |
 | [0001](0001-standalone-python-mcp-sdk.md) | Standalone Python server on the official MCP SDK | Accepted |
 | [0002](0002-caching-and-fallback.md) | Bounded caches, single-flight, and last-known-good fallback | Accepted |
-| [0003](0003-schedule-scraping.md) | Date- and shape-aware schedule scraping | Accepted |
+| [0003](0003-schedule-scraping.md) | Date- and shape-aware schedule scraping | Superseded by 0005 |
 | [0004](0004-http-security.md) | Secure HTTP defaults and optional bearer authentication | Accepted |
+| [0005](0005-offline-timetable-and-verified-freshness.md) | Offline GTFS timetable and verified live freshness | Accepted |
 
 ## Adding an ADR
 

@@ -202,6 +202,14 @@ def test_feed_without_a_clock_reference_is_unverified(network: NetworkIndex) -> 
         (datetime(2026, 12, 1, 10, 0, tzinfo=UTC), "12:10|10"),
         # Spring-forward day: 03:00 jumps to 04:00 local.
         (datetime(2026, 3, 29, 1, 0, tzinfo=UTC), "04:10|10"),
+        # Fall-back day, second pass through 03:xx (EET, fold=1).
+        (datetime(2026, 10, 25, 1, 30, tzinfo=UTC), "03:45|15"),
+        # Fall-back day, 23:50 EET, predictions after midnight.
+        (datetime(2026, 10, 25, 21, 50, tzinfo=UTC), "00:05|15"),
+        # Fall-back day, 00:30 EEST, after-midnight GTFS hour.
+        (datetime(2026, 10, 24, 21, 30, tzinfo=UTC), "24:40|10"),
+        # Spring-forward day, 23:50 EEST, predictions after midnight.
+        (datetime(2026, 3, 29, 20, 50, tzinfo=UTC), "00:05|15"),
     ],
 )
 def test_daylight_saving_offsets_are_respected(

@@ -1,322 +1,284 @@
-"""Schedule page parsing and the date/shape-aware schedule provider."""
+"""The bundled GTFS timetable, its generator, and the schedule provider."""
 
 from __future__ import annotations
 
-from datetime import date
-from urllib.parse import urlsplit
+import csv
+import importlib.util
+import io
+import json
+import zipfile
+from dataclasses import replace
+from datetime import UTC, date, datetime
+from pathlib import Path
+from types import ModuleType
+from typing import Any
+from zoneinfo import ZoneInfo
 
 import pytest
 
 from stpt_mcp.errors import ErrorCode, StptError
 from stpt_mcp.models import Direction, VehicleMode
-from stpt_mcp.network import NetworkIndex, StopRecord
-from stpt_mcp.providers.schedule import ScheduleProvider, parse_schedule_page
-from tests.support import (
-    SCHEDULE_BASE_URL,
-    FakeSTPT,
-    MutableClock,
-    load_text,
-    make_test_settings,
-    make_upstream,
-    seed_fake_stpt,
+from stpt_mcp.network import NetworkIndex
+from stpt_mcp.providers.schedule import (
+    ScheduleProvider,
+    ServiceCalendar,
+    Timetable,
+    TimetableTrip,
 )
+from tests.support import make_test_settings
 
-SERVICE_DATE = date(2026, 10, 21)
+BUCHAREST = ZoneInfo("Europe/Bucharest")
+ROOT = Path(__file__).resolve().parents[2]
 
 
-def test_parse_filters_by_stop_and_shape() -> None:
-    times, warnings = parse_schedule_page(
-        load_text("schedule/mixed.html"),
-        stop_id="85",
-        target_shapes=frozenset({"2.1_T", "4.1_R"}),
+def load_generator() -> ModuleType:
+    spec = importlib.util.spec_from_file_location(
+        "generate_timetable", ROOT / "scripts/generate_timetable.py"
     )
-    assert [(entry.hour, entry.minute, entry.shape_id) for entry in times] == [
-        (12, 5, "2.1_T"),
-        (12, 20, "4.1_R"),
-        (13, 0, "2.1_T"),
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def provider(network: NetworkIndex, timetable: Timetable) -> ScheduleProvider:
+    return ScheduleProvider(make_test_settings(), network, timetable)
+
+
+def local_times(departures: Any, line: str) -> list[str]:
+    return [
+        departure.departure_at.astimezone(BUCHAREST).strftime("%H:%M")
+        for departure in departures
+        if departure.line == line
     ]
-    assert warnings == ("Ignored 2 malformed schedule time token(s).",)
 
 
-def test_parse_missing_timetable_is_an_error() -> None:
-    with pytest.raises(StptError) as caught:
-        parse_schedule_page("<html><body>nope</body></html>", stop_id="85", target_shapes={"2.1_T"})
-    assert caught.value.code is ErrorCode.UPSTREAM_INVALID_RESPONSE
-
-
-def test_parse_missing_stop_is_reported() -> None:
-    times, warnings = parse_schedule_page(
-        load_text("schedule/line-2.html"),
-        stop_id="999",
-        target_shapes={"2.1_T"},
-    )
-    assert times == ()
-    assert warnings == ("Stop 999 was not present on the schedule page.",)
-
-
-def test_parse_rows_without_times_are_ignored() -> None:
-    html = (
-        '<html data-times="1|2"><table>'
-        '<tr data-code="85"></tr>'
-        '<tr data-code="85" data-times="12|05-2.1_T"></tr>'
-        "</table></html>"
-    )
-    times, warnings = parse_schedule_page(html, stop_id="85", target_shapes={"2.1_T"})
-    assert [(entry.hour, entry.minute) for entry in times] == [(12, 5)]
-    assert warnings == ()
-
-
-def test_parse_rejects_invalid_minutes_and_foreign_shapes() -> None:
-    html = (
-        "<html><table>"
-        '<tr data-code="85" data-times="12|60-2.1_T 05-9.9_T 05-2.1_T"></tr>'
-        "</table></html>"
-    )
-    times, warnings = parse_schedule_page(html, stop_id="85", target_shapes={"2.1_T"})
-    assert [(entry.hour, entry.minute) for entry in times] == [(12, 5)]
-    assert warnings == ()
-
-
-def test_parse_accepts_after_midnight_hours() -> None:
-    html = (
-        '<html><table><tr data-code="85" data-times="24|10-2.1_T, 25|05-2.1_T"></tr></table></html>'
-    )
-    times, warnings = parse_schedule_page(html, stop_id="85", target_shapes={"2.1_T"})
-    assert [(entry.hour, entry.minute) for entry in times] == [(24, 10), (25, 5)]
-    assert warnings == ()
-
-
-async def test_provider_fetches_all_direction_pages(
-    network: NetworkIndex, clock: MutableClock
+def test_bundled_timetable_matches_the_network_snapshot(
+    network: NetworkIndex, timetable: Timetable
 ) -> None:
-    fake = seed_fake_stpt(FakeSTPT())
-    settings = make_test_settings()
-    upstream = make_upstream(settings, fake, clock)
-    provider = ScheduleProvider(
-        upstream, settings, network, clock=clock.monotonic, wall_clock=clock.wall
+    assert timetable.feed_version == network.snapshot.feed_version
+    assert timetable.start.strftime("%Y%m%d") == network.snapshot.service_range["start"]
+    assert timetable.end.strftime("%Y%m%d") == network.snapshot.service_range["end"]
+    assert sum(len(trips) for trips in timetable.trips.values()) == network.snapshot.counts["trips"]
+    for shape_id, trips in timetable.trips.items():
+        shape = network.snapshot.shapes[shape_id]
+        for trip in trips:
+            assert trip.service_id in timetable.services
+            assert len(trip.offsets) == len(shape)
+            assert list(trip.offsets) == sorted(trip.offsets)
+
+
+def test_service_calendar_applies_weekdays_and_exceptions() -> None:
+    weekdays = ServiceCalendar(
+        days="1111100",
+        start="20261019",
+        end="20261231",
+        added=frozenset({"20261024"}),
+        removed=frozenset({"20261026"}),
     )
-    try:
-        result = await provider.fetch_stop_schedule(network.require_stop("85"), SERVICE_DATE)
-        assert result.complete is True
-        assert result.stale is False
-        assert result.fetched_at == clock.wall()
-        assert result.warnings == ()
-        assert [
-            (departure.line, departure.departure_at.strftime("%H:%M"), departure.direction)
-            for departure in result.value
-        ] == [
-            ("2", "13:35", Direction.OUTBOUND),
-            ("4", "13:40", Direction.INBOUND),
-            ("7", "13:45", Direction.OUTBOUND),
-            ("2", "13:50", Direction.OUTBOUND),
-            ("4", "13:58", Direction.INBOUND),
-            ("2", "14:05", Direction.OUTBOUND),
-            ("7", "14:15", Direction.OUTBOUND),
-            ("4", "14:16", Direction.INBOUND),
-            ("7", "15:15", Direction.OUTBOUND),
-        ]
-        assert all(departure.mode is VehicleMode.TRAM for departure in result.value)
-        paths = {urlsplit(str(request.url)).path for request in fake.requests}
-        assert paths == {
-            "/linie-transport-public-2/",
-            "/linie-transport-public-4-r/",
-            "/linie-transport-public-7/",
+    assert weekdays.runs_on(date(2026, 10, 23))  # Friday
+    assert weekdays.runs_on(date(2026, 10, 24))  # Saturday, added
+    assert not weekdays.runs_on(date(2026, 10, 25))  # Sunday
+    assert not weekdays.runs_on(date(2026, 10, 26))  # Monday, removed
+    assert not weekdays.runs_on(date(2027, 1, 4))  # after the range
+    only_added = ServiceCalendar("0000000", "", "", frozenset({"20261026"}), frozenset())
+    assert only_added.runs_on(date(2026, 10, 26))
+    assert not only_added.runs_on(date(2026, 10, 27))
+
+
+async def test_stop_135_line_14_matches_the_published_timetable(
+    network: NetworkIndex, timetable: Timetable
+) -> None:
+    # Reference check: around 12:55 on 2026-10-23 the official GTFS lists
+    # line 14 at Piața Mărăști towards I. Ionescu de la Brad at 12:59.
+    result = await provider(network, timetable).fetch_stop_schedule(
+        network.require_stop("135"), date(2026, 10, 23)
+    )
+    times = local_times(result.value, "14")
+    index = times.index("12:59")
+    assert times[index - 2 : index + 3] == ["12:29", "12:44", "12:59", "13:14", "13:29"]
+    line_14 = [departure for departure in result.value if departure.line == "14"]
+    assert {departure.destination for departure in line_14} == {"Ion Ionescu de la Brad"}
+    assert {departure.direction for departure in line_14} == {Direction.OUTBOUND}
+    assert {departure.shape_id for departure in line_14} == {"14.1_T"}
+    assert {departure.mode for departure in line_14} == {VehicleMode.TROLLEYBUS}
+    assert result.fetched_at == timetable.generated_at
+    assert result.complete is True
+    assert result.stale is False
+
+
+async def test_a_trip_final_stop_is_not_a_departure(
+    network: NetworkIndex, timetable: Timetable
+) -> None:
+    terminal = network.snapshot.shapes["14.1_T"][-1].stop_id
+    result = await provider(network, timetable).fetch_stop_schedule(
+        network.require_stop(terminal), date(2026, 10, 23)
+    )
+    assert all(departure.shape_id != "14.1_T" for departure in result.value)
+
+
+async def test_departures_span_adjacent_service_days(network: NetworkIndex) -> None:
+    every_day = ServiceCalendar("1111111", "20261019", "20261231", frozenset(), frozenset())
+    stop = network.require_stop("135")
+    shape = network.snapshot.shapes["14.1_T"]
+    index = next(i for i, entry in enumerate(shape) if entry.stop_id == "135")
+    offsets = tuple(0 if i <= index else 1 for i in range(len(shape)))
+    small = Timetable(
+        generated_at=datetime(2026, 10, 21, 10, 15, tzinfo=UTC),
+        feed_version="test",
+        start=date(2026, 10, 19),
+        end=date(2026, 12, 31),
+        services={"daily": every_day},
+        # 24:20 is twenty past midnight after the service day.
+        trips={"14.1_T": (TimetableTrip("daily", 24 * 60 + 20, offsets),)},
+    )
+    result = await provider(network, small).fetch_stop_schedule(stop, date(2026, 10, 23))
+    assert [departure.departure_at for departure in result.value] == [
+        datetime(2026, 10, 23, 0, 20, tzinfo=BUCHAREST),
+        datetime(2026, 10, 24, 0, 20, tzinfo=BUCHAREST),
+        datetime(2026, 10, 25, 0, 20, tzinfo=BUCHAREST),
+    ]
+
+
+async def test_the_day_after_the_timetable_keeps_after_midnight_trips(
+    network: NetworkIndex, timetable: Timetable
+) -> None:
+    result = await provider(network, timetable).fetch_stop_schedule(
+        network.require_stop("109"), date(2027, 1, 1)
+    )
+    assert result.complete is False
+    assert any("ended on 2026-12-31" in warning for warning in result.warnings)
+    # GTFS: trip 5c.1_WDVC_T_01_14 of 2026-12-31 leaves stop 109 at 24:02.
+    after_midnight = [
+        departure
+        for departure in result.value
+        if departure.departure_at >= datetime(2027, 1, 1, tzinfo=BUCHAREST)
+    ]
+    assert [(d.line, d.departure_at.strftime("%H:%M")) for d in after_midnight] == [("5c", "00:02")]
+
+
+async def test_the_last_timetable_day_warns_that_later_days_are_missing(
+    network: NetworkIndex, timetable: Timetable
+) -> None:
+    result = await provider(network, timetable).fetch_stop_schedule(
+        network.require_stop("135"), date(2026, 12, 31)
+    )
+    assert result.complete is True
+    assert result.value
+    assert any("ends on 2026-12-31" in warning for warning in result.warnings)
+
+
+async def test_dates_outside_the_timetable_are_unavailable(
+    network: NetworkIndex, timetable: Timetable
+) -> None:
+    with pytest.raises(StptError) as excinfo:
+        await provider(network, timetable).fetch_stop_schedule(
+            network.require_stop("135"), date(2027, 1, 2)
+        )
+    assert excinfo.value.code is ErrorCode.SCHEDULE_UNAVAILABLE
+    assert excinfo.value.retryable is False
+    assert "2026-12-31" in excinfo.value.message
+
+
+async def test_stop_without_shapes_is_unavailable(
+    network: NetworkIndex, timetable: Timetable
+) -> None:
+    stop = replace(network.require_stop("135"), shapes=())
+    with pytest.raises(StptError) as excinfo:
+        await provider(network, timetable).fetch_stop_schedule(stop, date(2026, 10, 23))
+    assert excinfo.value.code is ErrorCode.SCHEDULE_UNAVAILABLE
+
+
+def gtfs_zip(
+    *, feed_version: str = "4.28", stops: tuple[str, ...] = (), seconds: str = "00"
+) -> bytes:
+    def table(rows: list[dict[str, str]]) -> str:
+        buffer = io.StringIO()
+        writer = csv.DictWriter(buffer, fieldnames=list(rows[0]))
+        writer.writeheader()
+        writer.writerows(rows)
+        return buffer.getvalue()
+
+    stop_times = [
+        {
+            "trip_id": "t1",
+            "stop_id": stop_id,
+            "stop_sequence": str(sequence),
+            "arrival_time": f"08:{sequence:02d}:{seconds}",
+            "departure_time": f"08:{sequence:02d}:{seconds}",
         }
-        assert all(
-            request.url.params.get("custom_value") == "21.10.2026" for request in fake.requests
-        )
-    finally:
-        await provider.close()
-        await upstream.close()
+        for sequence, stop_id in enumerate(stops)
+    ]
+    files = {
+        "feed_info.txt": table(
+            [
+                {
+                    "feed_version": feed_version,
+                    "feed_start_date": "20261019",
+                    "feed_end_date": "20261231",
+                }
+            ]
+        ),
+        "calendar.txt": table(
+            [
+                {
+                    "service_id": "s1",
+                    **dict.fromkeys(("monday", "tuesday", "wednesday", "thursday", "friday"), "1"),
+                    "saturday": "0",
+                    "sunday": "0",
+                    "start_date": "20261019",
+                    "end_date": "20261231",
+                }
+            ]
+        ),
+        "calendar_dates.txt": table(
+            [{"service_id": "s2", "date": "20261024", "exception_type": "1"}]
+        ),
+        "frequencies.txt": "trip_id,start_time,end_time,headway_secs\n",
+        "trips.txt": table([{"trip_id": "t1", "service_id": "s1", "shape_id": "1.1_T"}]),
+        "stop_times.txt": table(stop_times),
+    }
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as archive:
+        for name, text in files.items():
+            archive.writestr(name, text)
+    return buffer.getvalue()
 
 
-async def test_provider_rolls_after_midnight_times_to_the_next_day(
-    network: NetworkIndex, clock: MutableClock
-) -> None:
-    fake = seed_fake_stpt(FakeSTPT())
-    fake.set_text(
-        f"{SCHEDULE_BASE_URL}/linie-transport-public-2/",
-        "<html><table>"
-        '<tr data-code="85" data-times="24|10-2.1_T, 25|05-2.1_T"></tr>'
-        "</table></html>",
+SMALL_NETWORK: dict[str, Any] = {
+    "feed_version": "4.28",
+    "shapes": {"1.1_T": [["10", "A", 0], ["11", "B", 1], ["12", "C", 2]]},
+}
+GENERATED_AT = datetime(2026, 10, 23, 10, 30, tzinfo=UTC)
+
+
+def test_generator_encodes_trips_as_shared_patterns() -> None:
+    generator = load_generator()
+    built = generator.build_timetable(
+        gtfs_zip(stops=("10", "11", "12")), SMALL_NETWORK, GENERATED_AT
     )
-    settings = make_test_settings()
-    upstream = make_upstream(settings, fake, clock)
-    provider = ScheduleProvider(
-        upstream, settings, network, clock=clock.monotonic, wall_clock=clock.wall
-    )
-    try:
-        result = await provider.fetch_stop_schedule(network.require_stop("85"), SERVICE_DATE)
-        departures = [
-            departure.departure_at.strftime("%Y-%m-%d %H:%M")
-            for departure in result.value
-            if departure.line == "2"
-        ]
-        assert departures == ["2026-10-22 00:10", "2026-10-22 01:05"]
-    finally:
-        await provider.close()
-        await upstream.close()
+    assert built["shapes"] == {"1.1_T": {"patterns": [[1, 1]], "trips": [["s1", 480, 0]]}}
+    assert built["services"]["s1"]["days"] == "1111100"
+    assert built["services"]["s2"] == {
+        "days": "0000000",
+        "start": "",
+        "end": "",
+        "added": ["20261024"],
+        "removed": [],
+    }
+    assert built["generated_at"] == "2026-10-23T10:30:00Z"
+    json.dumps(built)
 
 
-async def test_provider_uses_date_specific_pages(
-    network: NetworkIndex, clock: MutableClock
-) -> None:
-    fake = seed_fake_stpt(FakeSTPT())
-    settings = make_test_settings()
-    upstream = make_upstream(settings, fake, clock)
-    provider = ScheduleProvider(
-        upstream, settings, network, clock=clock.monotonic, wall_clock=clock.wall
-    )
-    try:
-        await provider.fetch_stop_schedule(network.require_stop("85"), date(2026, 10, 22))
-        assert all(
-            request.url.params.get("custom_value") == "22.10.2026" for request in fake.requests
-        )
-    finally:
-        await provider.close()
-        await upstream.close()
-
-
-async def test_provider_marks_partial_when_one_page_fails(
-    network: NetworkIndex, clock: MutableClock
-) -> None:
-    fake = seed_fake_stpt(FakeSTPT())
-    settings = make_test_settings()
-    upstream = make_upstream(settings, fake, clock)
-    provider = ScheduleProvider(
-        upstream, settings, network, clock=clock.monotonic, wall_clock=clock.wall
-    )
-    fake.fail_next(f"{SCHEDULE_BASE_URL}/linie-transport-public-4-r/", times=3)
-    try:
-        result = await provider.fetch_stop_schedule(network.require_stop("85"), SERVICE_DATE)
-        assert result.complete is False
-        assert result.stale is False
-        assert [departure.line for departure in result.value] == ["2", "7", "2", "2", "7", "7"]
-        assert any(
-            "Line 4 retur schedule page was unavailable" in warning for warning in result.warnings
-        )
-    finally:
-        await provider.close()
-        await upstream.close()
-
-
-async def test_provider_fails_when_every_page_fails(
-    network: NetworkIndex, clock: MutableClock
-) -> None:
-    fake = seed_fake_stpt(FakeSTPT())
-    settings = make_test_settings()
-    upstream = make_upstream(settings, fake, clock)
-    provider = ScheduleProvider(
-        upstream, settings, network, clock=clock.monotonic, wall_clock=clock.wall
-    )
-    for path in ("2", "4-r", "7"):
-        fake.fail_next(f"{SCHEDULE_BASE_URL}/linie-transport-public-{path}/", times=3)
-    try:
-        with pytest.raises(StptError) as caught:
-            await provider.fetch_stop_schedule(network.require_stop("85"), SERVICE_DATE)
-        assert caught.value.code is ErrorCode.SCHEDULE_UNAVAILABLE
-        assert caught.value.retryable is True
-    finally:
-        await provider.close()
-        await upstream.close()
-
-
-async def test_provider_rejects_stop_without_shapes(
-    network: NetworkIndex, clock: MutableClock
-) -> None:
-    fake = FakeSTPT()
-    settings = make_test_settings()
-    upstream = make_upstream(settings, fake, clock)
-    provider = ScheduleProvider(
-        upstream, settings, network, clock=clock.monotonic, wall_clock=clock.wall
-    )
-    stop = StopRecord(
-        stop_id="0",
-        name="No shapes",
-        latitude=0.0,
-        longitude=0.0,
-        routes=(),
-        shapes=(),
-        is_terminal=False,
-        terminal_for=(),
-        neighbors=(),
-    )
-    try:
-        with pytest.raises(StptError) as caught:
-            await provider.fetch_stop_schedule(stop, SERVICE_DATE)
-        assert caught.value.code is ErrorCode.SCHEDULE_UNAVAILABLE
-        assert fake.requests == []
-    finally:
-        await provider.close()
-        await upstream.close()
-
-
-async def test_provider_truncates_page_list(network: NetworkIndex, clock: MutableClock) -> None:
-    fake = seed_fake_stpt(FakeSTPT())
-    settings = make_test_settings(schedule_max_pages=1)
-    upstream = make_upstream(settings, fake, clock)
-    provider = ScheduleProvider(
-        upstream, settings, network, clock=clock.monotonic, wall_clock=clock.wall
-    )
-    try:
-        result = await provider.fetch_stop_schedule(network.require_stop("85"), SERVICE_DATE)
-        assert result.complete is False
-        assert [departure.line for departure in result.value] == ["2", "2", "2"]
-        assert result.warnings == ("Schedule lookup was limited to 1 pages.",)
-        assert len(fake.requests) == 1
-    finally:
-        await provider.close()
-        await upstream.close()
-
-
-async def test_provider_serves_stale_page_after_refresh_failure(
-    network: NetworkIndex, clock: MutableClock
-) -> None:
-    fake = seed_fake_stpt(FakeSTPT())
-    settings = make_test_settings(schedule_ttl_seconds=10, schedule_stale_ttl_seconds=100)
-    upstream = make_upstream(settings, fake, clock)
-    provider = ScheduleProvider(
-        upstream, settings, network, clock=clock.monotonic, wall_clock=clock.wall
-    )
-    try:
-        await provider.fetch_stop_schedule(network.require_stop("85"), SERVICE_DATE)
-        clock.advance(11)
-        fake.fail_next(f"{SCHEDULE_BASE_URL}/linie-transport-public-2/", times=3)
-        result = await provider.fetch_stop_schedule(network.require_stop("85"), SERVICE_DATE)
-        assert result.complete is True
-        assert result.stale is True
-        assert [departure.line for departure in result.value] == [
-            "2",
-            "4",
-            "7",
-            "2",
-            "4",
-            "2",
-            "7",
-            "4",
-            "7",
-        ]
-        assert any("came from the stale cache" in warning for warning in result.warnings)
-        assert any("refresh failed" in warning for warning in result.warnings)
-    finally:
-        await provider.close()
-        await upstream.close()
-
-
-async def test_provider_page_cache_avoids_duplicate_fetches(
-    network: NetworkIndex, clock: MutableClock
-) -> None:
-    fake = seed_fake_stpt(FakeSTPT())
-    settings = make_test_settings()
-    upstream = make_upstream(settings, fake, clock)
-    provider = ScheduleProvider(
-        upstream, settings, network, clock=clock.monotonic, wall_clock=clock.wall
-    )
-    try:
-        await provider.fetch_stop_schedule(network.require_stop("85"), SERVICE_DATE)
-        await provider.fetch_stop_schedule(network.require_stop("85"), SERVICE_DATE)
-        assert len(fake.requests) == 3
-        assert provider.page_cache.stats().hits == 3
-    finally:
-        await provider.close()
-        await upstream.close()
+@pytest.mark.parametrize(
+    ("kwargs", "message"),
+    [
+        ({"stops": ("10", "12", "11")}, "does not follow network shape"),
+        ({"stops": ("10", "11", "12"), "feed_version": "4.29"}, "does not match"),
+        ({"stops": ("10", "11", "12"), "seconds": "30"}, "has seconds"),
+    ],
+)
+def test_generator_rejects_inconsistent_feeds(kwargs: dict[str, Any], message: str) -> None:
+    generator = load_generator()
+    with pytest.raises(ValueError, match=message):
+        generator.build_timetable(gtfs_zip(**kwargs), SMALL_NETWORK, GENERATED_AT)

@@ -19,6 +19,7 @@ class ProviderResult(Generic[T]):
     complete: bool = True
     stale: bool = False
     observed_at: datetime | None = None
+    skew_seconds: float | None = None
 
 
 @dataclass(frozen=True, slots=True)

@@ -19,7 +19,6 @@ from stpt_mcp import __version__
 DEFAULT_LIVE_URL = "https://live.stpt.ro/proxy-smtt-cache.php"
 DEFAULT_ALERTS_URL = "https://live.stpt.ro/proxy-alerts.php"
 DEFAULT_VEHICLES_URL = "https://live.stpt.ro/gtfs-vehicles.php"
-DEFAULT_SCHEDULE_BASE_URL = "https://smtt.ro"
 DEFAULT_USER_AGENT = f"stpt-mcp/{__version__} (+https://github.com/vladirocox/stpt-mcp)"
 DEFAULT_OAUTH_REDIRECT_URIS = (
     "https://claude.ai/api/mcp/auth_callback",
@@ -68,7 +67,6 @@ class Settings:
     live_url: str = DEFAULT_LIVE_URL
     alerts_url: str = DEFAULT_ALERTS_URL
     vehicles_url: str = DEFAULT_VEHICLES_URL
-    schedule_base_url: str = DEFAULT_SCHEDULE_BASE_URL
     user_agent: str = DEFAULT_USER_AGENT
 
     request_timeout_seconds: float = 10.0
@@ -89,9 +87,7 @@ class Settings:
     vehicles_ttl_seconds: float = 60.0
     vehicles_stale_ttl_seconds: float = 600.0
     schedule_lookahead_minutes: int = 180
-    schedule_max_pages: int = 20
     max_cache_entries: int = 2048
-    schedule_page_cache_entries: int = 1024
     vehicle_stale_after_seconds: float = 120.0
     live_clock_skew_tolerance_seconds: float = 180.0
 
@@ -125,7 +121,6 @@ class Settings:
             ("live_url", self.live_url),
             ("alerts_url", self.alerts_url),
             ("vehicles_url", self.vehicles_url),
-            ("schedule_base_url", self.schedule_base_url),
         ):
             parsed = urlparse(url)
             if parsed.scheme not in {"http", "https"} or not parsed.netloc:
@@ -167,9 +162,7 @@ class Settings:
             "upstream_concurrency": (self.upstream_concurrency, 1, 64),
             "max_response_bytes": (self.max_response_bytes, 1024, 50_000_000),
             "schedule_lookahead_minutes": (self.schedule_lookahead_minutes, 1, 1440),
-            "schedule_max_pages": (self.schedule_max_pages, 1, 100),
             "max_cache_entries": (self.max_cache_entries, 1, 100_000),
-            "schedule_page_cache_entries": (self.schedule_page_cache_entries, 1, 100_000),
             "max_request_body_size": (self.max_request_body_size, 1024, 100_000_000),
             "max_sessions": (self.max_sessions, 1, 100_000),
             "max_concurrent_http_requests": (self.max_concurrent_http_requests, 1, 10_000),
@@ -324,7 +317,6 @@ class Settings:
             live_url=text("STPT_MCP_LIVE_URL", DEFAULT_LIVE_URL),
             alerts_url=text("STPT_MCP_ALERTS_URL", DEFAULT_ALERTS_URL),
             vehicles_url=text("STPT_MCP_VEHICLES_URL", DEFAULT_VEHICLES_URL),
-            schedule_base_url=text("STPT_MCP_SCHEDULE_BASE_URL", DEFAULT_SCHEDULE_BASE_URL),
             user_agent=text("STPT_MCP_USER_AGENT", DEFAULT_USER_AGENT),
             request_timeout_seconds=number("STPT_MCP_REQUEST_TIMEOUT_SECONDS", 10.0),
             connect_timeout_seconds=number("STPT_MCP_CONNECT_TIMEOUT_SECONDS", 5.0),
@@ -343,9 +335,7 @@ class Settings:
             vehicles_ttl_seconds=number("STPT_MCP_VEHICLES_TTL_SECONDS", 60.0),
             vehicles_stale_ttl_seconds=number("STPT_MCP_VEHICLES_STALE_TTL_SECONDS", 600.0),
             schedule_lookahead_minutes=integer("STPT_MCP_SCHEDULE_LOOKAHEAD_MINUTES", 180),
-            schedule_max_pages=integer("STPT_MCP_SCHEDULE_MAX_PAGES", 20),
             max_cache_entries=integer("STPT_MCP_MAX_CACHE_ENTRIES", 2048),
-            schedule_page_cache_entries=integer("STPT_MCP_SCHEDULE_PAGE_CACHE_ENTRIES", 1024),
             vehicle_stale_after_seconds=number("STPT_MCP_VEHICLE_STALE_AFTER_SECONDS", 120.0),
             live_clock_skew_tolerance_seconds=number(
                 "STPT_MCP_LIVE_CLOCK_SKEW_TOLERANCE_SECONDS", 180.0

@@ -24,6 +24,7 @@ import httpx
 import uvicorn
 
 from stpt_mcp.config import Settings
+from stpt_mcp.providers.schedule import Timetable
 from stpt_mcp.service import TransitService
 from stpt_mcp.upstream import UpstreamClient
 
@@ -32,15 +33,6 @@ FIXED_NOW = datetime(2026, 10, 21, 10, 30, tzinfo=UTC)
 LIVE_URL = "https://live.test/proxy-smtt-cache.php"
 ALERTS_URL = "https://live.test/proxy-alerts.php"
 VEHICLES_URL = "https://live.test/gtfs-vehicles.php"
-SCHEDULE_BASE_URL = "https://smtt.test"
-
-SCHEDULE_PAGES = {
-    "/linie-transport-public-1/": "line-1.html",
-    "/linie-transport-public-2/": "line-2.html",
-    "/linie-transport-public-4-r/": "line-4-r.html",
-    "/linie-transport-public-7/": "line-7.html",
-    "/linie-transport-public-8/": "line-8.html",
-}
 
 
 def fixture_path(name: str) -> Path:
@@ -225,8 +217,8 @@ class FakeSTPT:
 ServiceFactory = Callable[..., Awaitable[tuple[TransitService, FakeSTPT]]]
 
 
-def seed_fake_stpt(fake: FakeSTPT, *, schedule_base_url: str = SCHEDULE_BASE_URL) -> FakeSTPT:
-    """Populate a fake with the deterministic arrivals, alerts, and schedules."""
+def seed_fake_stpt(fake: FakeSTPT) -> FakeSTPT:
+    """Populate a fake with the deterministic arrivals, alerts, and vehicles."""
 
     live_85 = load_json("live_85.json")
     live_60 = load_json("live_60.json")
@@ -242,8 +234,6 @@ def seed_fake_stpt(fake: FakeSTPT, *, schedule_base_url: str = SCHEDULE_BASE_URL
     fake.set_json_callback(LIVE_URL, live_payload)
     fake.set_json(ALERTS_URL, load_json("alerts.json"))
     fake.set_json(VEHICLES_URL, load_json("vehicles.json"))
-    for path, fixture in SCHEDULE_PAGES.items():
-        fake.set_text(f"{schedule_base_url}{path}", load_text(f"schedule/{fixture}"))
     return fake
 
 
@@ -256,7 +246,6 @@ def make_test_settings(**overrides: Any) -> Settings:
         "live_url": LIVE_URL,
         "alerts_url": ALERTS_URL,
         "vehicles_url": VEHICLES_URL,
-        "schedule_base_url": SCHEDULE_BASE_URL,
         "request_timeout_seconds": 1.0,
         "connect_timeout_seconds": 1.0,
         "max_retries": 2,
@@ -293,12 +282,14 @@ def make_service(
     clock: MutableClock,
     *,
     network: Any = None,
+    timetable: Timetable | None = None,
     sleep: Callable[[float], Awaitable[None]] = no_sleep,
 ) -> TransitService:
     upstream = make_upstream(settings, fake, clock, sleep=sleep)
     return TransitService(
         settings,
         network=network,
+        timetable=timetable,
         upstream=upstream,
         clock=clock.monotonic,
         wall_clock=clock.wall,
@@ -404,10 +395,6 @@ class FakeUpstreamHTTPServer:
             return
         if route == "/gtfs-vehicles.php":
             self._send_json(handler, load_json("vehicles.json"))
-            return
-        fixture = SCHEDULE_PAGES.get(route)
-        if fixture is not None:
-            self._send(handler, 200, "text/html; charset=utf-8", load_text(f"schedule/{fixture}"))
             return
         self._send(handler, 404, "text/plain; charset=utf-8", b"not found")
 

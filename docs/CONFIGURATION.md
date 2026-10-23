@@ -33,9 +33,11 @@ Invalid values fail fast with a clear message. A non-loopback bind without
 | `STPT_MCP_LIVE_URL` | `https://live.stpt.ro/proxy-smtt-cache.php` |
 | `STPT_MCP_ALERTS_URL` | `https://live.stpt.ro/proxy-alerts.php` |
 | `STPT_MCP_VEHICLES_URL` | `https://live.stpt.ro/gtfs-vehicles.php` |
-| `STPT_MCP_SCHEDULE_BASE_URL` | `https://smtt.ro` |
 
-All must be absolute `http(s)` URLs. Tests point these at loopback servers.
+All must be absolute `http(s)` URLs. Tests point these at loopback servers. The
+schedule fallback has no URL: it reads the bundled GTFS timetable. Since 0.3.7,
+`STPT_MCP_SCHEDULE_BASE_URL`, `STPT_MCP_SCHEDULE_MAX_PAGES`, and
+`STPT_MCP_SCHEDULE_PAGE_CACHE_ENTRIES` are ignored.
 
 ## HTTP security
 
@@ -110,11 +112,9 @@ header-based clients to keep working while hosted clients use sign-in.
 | `STPT_MCP_VEHICLES_TTL_SECONDS` | `60` | Vehicles freshness. |
 | `STPT_MCP_VEHICLES_STALE_TTL_SECONDS` | `600` | Vehicles stale window. |
 | `STPT_MCP_VEHICLE_STALE_AFTER_SECONDS` | `120` | Per-vehicle observation age threshold. |
-| `STPT_MCP_LIVE_CLOCK_SKEW_TOLERANCE_SECONDS` | `180` | Maximum divergence between the live feed's implied clock and the real clock before the feed is treated as stale. |
+| `STPT_MCP_LIVE_CLOCK_SKEW_TOLERANCE_SECONDS` | `180` | Maximum divergence between the live feed's implied clock and the real clock, and the longest a stop's feed clock may stand still, before the feed is treated as stale. Also the furthest a vehicle timestamp may be ahead of the clock. |
 | `STPT_MCP_SCHEDULE_LOOKAHEAD_MINUTES` | `180` | Schedule departure window; 1–1440. |
-| `STPT_MCP_MAX_CACHE_ENTRIES` | `2048` | Arrival/schedule/alert/vehicle cache bound. |
-| `STPT_MCP_SCHEDULE_PAGE_CACHE_ENTRIES` | `1024` | HTML page cache bound. |
-| `STPT_MCP_SCHEDULE_MAX_PAGES` | `20` | Maximum pages per schedule refresh. |
+| `STPT_MCP_MAX_CACHE_ENTRIES` | `2048` | Arrival/schedule/alert/vehicle cache bound, and the bound on remembered live feed clocks. |
 
 Stale windows must be greater than or equal to their TTLs. Lowering TTLs increases
 upstream load; raising them increases staleness. The defaults are chosen for a
