@@ -11,8 +11,7 @@ Chronological evidence for the implementation. Times are local
   tree was not modified.
 - Verified `uv 0.13.4`, Python `3.13.5`, Node `22`, Git `2.47.3`, GitHub CLI
   `2.46.0`, Make `4.4.1`. Docker and Podman are not installed.
-- `gh auth status` shows authenticated account `vladirocox` with `repo`,
-  `workflow`, `gist`, and `read:org` scopes.
+- The GitHub CLI was authenticated as the repository owner.
 - Verified endpoints:
   - live arrivals for stop 85 return HTTP 200 with a JSON array;
   - unknown stops return an empty array with HTTP 200;
@@ -140,68 +139,47 @@ Commands run from the project working directory with Python 3.11.17 and
   0 issues, pip-audit found no known vulnerabilities, and `uv build` produced
   `stpt_mcp-0.2.0` wheel and sdist.
 
-## 2026-10-21 — deployment to a private host (v0.2.0)
+## 2026-10-21 — self-hosted deployment (v0.2.0)
+
+Deployment specifics (hostname, addresses, ports, paths, and network setup) are
+intentionally not recorded in this public log.
 
 - CI for commit `4f99792` passed all jobs: Python 3.11, 3.12, 3.13, security,
   build, and container (run `39590112771`).
-- Installed the `main` checkout in `/opt/stpt-mcp` on the deployment host under
-  Python 3.13.5 with a dedicated `.venv`.
-- Created `stpt-mcp.service` running as a dedicated service account, enabled at
-  boot. It bound `0.0.0.0:9000`, used an explicit `STPT_MCP_ALLOWED_HOSTS`
-  list, and read the bearer token from a root-only environment file.
-- Opened TCP 9000 in `ufw`; the existing router forwarding for port 9000 was
-  confirmed by reaching the service through the public hostname.
+- Installed the `main` checkout on a self-hosted deployment under Python 3.13.5
+  with a dedicated virtual environment and a systemd service enabled at boot,
+  using an explicit `STPT_MCP_ALLOWED_HOSTS` list. The bearer token is kept in a
+  protected environment file on the host, not in the repository.
 - Verification:
-  - The public `/healthz` endpoint returned HTTP 200
-    `{"status":"ok","service":"stpt-mcp","version":"0.2.0"}`; the same request
-    also succeeded through an external reader.
+  - `/healthz` returned HTTP 200
+    `{"status":"ok","service":"stpt-mcp","version":"0.2.0"}`.
   - MCP `initialize` without a token returned 401; a wrong token returned 401;
     the configured token returned 200.
   - The official MCP client negotiated protocol `2026-07-28`, listed all seven
     tools, resolved stop 85 (`Catedrala Mitropolitană`), returned three live
     arrivals with `source=live`, `stale=false`, and reported the service ready
     with feed `4.28`.
-  - A service restart preserved the token and authentication behavior; the
-    unit is `enabled` and `active`.
-- Added a removal note in the service account's home directory with
-  stop/disable, unit removal, token removal, installation deletion, `ufw`
-  rollback, router-forwarding rollback, and verification commands.
-- The endpoint used plain HTTP on port 9000. The bearer token should be treated
-  as sensitive; TLS via a reverse proxy is recommended if the endpoint is kept
-  public long-term. **Superseded by the HTTPS deployment below.**
+  - A service restart preserved the token and authentication behavior.
+- Removal and rollback instructions are kept with the deployment, outside the
+  repository.
 
 ## 2026-10-21 — HTTPS for the public MCP endpoint
 
-- The deployment host already runs Caddy on ports 80/443 with a Let's Encrypt
-  certificate for the public hostname.
-- Backed up the Caddy config, Caddy Compose file, and systemd unit before
-  changing them.
-- Moved the MCP process to an internal private port so Caddy could own the
-  public port 9000. Updated `STPT_MCP_ALLOWED_HOSTS` and
-  `STPT_MCP_ALLOWED_ORIGINS` for the public hostname and local checks.
-- Added a Caddy site block for the public HTTPS endpoint using the existing
-  certificate, reverse-proxying to the internal port with `flush_interval -1`
-  for Streamable HTTP streaming.
-- Added the public port to the Caddy Compose port mappings and recreated the
-  container after `caddy validate` passed.
+- Put the endpoint behind a Caddy reverse proxy with TLS, reverse-proxying to an
+  internal port with `flush_interval -1` for Streamable HTTP streaming, after
+  `caddy validate` passed. Existing proxy configuration was backed up first.
 - Verification:
-  - The public HTTPS `/healthz` endpoint returned HTTP 200 with
-    `{"status":"ok","service":"stpt-mcp","version":"0.2.0"}` through the public
-    hostname and through an external reader.
-  - The certificate is the existing Let's Encrypt certificate, valid through
-    2026-12-21. Caddy loads it explicitly and does not renew it, so the existing
-    renewal process must be confirmed before that date.
-  - Plain HTTP to the public port returns 400; the endpoint is HTTPS-only.
+  - The HTTPS `/healthz` endpoint returned HTTP 200 with
+    `{"status":"ok","service":"stpt-mcp","version":"0.2.0"}`.
+  - Plain HTTP to the MCP port is rejected; the endpoint is HTTPS-only.
   - MCP `initialize` without a token returned 401 and with the configured token
     returned 200 over HTTPS.
   - The official MCP client negotiated protocol `2026-07-28`, listed seven
     tools, resolved stop 85, returned three live arrivals with `source=live`,
     and reported the service ready with feed `4.28`.
-  - The existing root site still returns its 301 redirect; the Caddy change did
-    not alter the unrelated site blocks.
+  - Unrelated sites on the same proxy were unaffected.
 - Updated the deployment guide with Caddy `flush_interval -1` and non-standard
-  HTTPS port guidance, and updated the remote removal note with Caddy rollback
-  instructions.
+  HTTPS port guidance.
 
 ## 2026-10-21 — repository hardening and public HTTPS guide
 
@@ -212,10 +190,8 @@ Commands run from the project working directory with Python 3.11.17 and
   go through a pull request.
 - Audited the current tree and all commits for bearer tokens, passwords, private
   keys, `.env` files, and obvious cloud/API credentials; none were found.
-- Removed unnecessary internal deployment metadata (private hostname, LAN
-  addresses, internal Docker gateway, service-account paths, and backup names)
-  from the public execution log and implementation plan. The public hostname
-  and public IP were also removed from the repository docs.
+- Removed internal deployment metadata from the public execution log and
+  implementation plan.
 - Added [Public HTTPS](PUBLIC_HTTPS.md): an end-to-end systemd + Caddy guide
   covering DNS, certificates, firewall, authentication, client configuration,
   renewal, troubleshooting, and removal.
@@ -223,8 +199,7 @@ Commands run from the project working directory with Python 3.11.17 and
   `examples/https-client.json`; linked them from the README and deployment
   documentation. Added `deploy/` to the source distribution.
 - Exposed `/mcp` on standard HTTPS port 443 through the reverse proxy for hosted
-  clients that do not connect to non-standard ports. The existing port 9000
-  endpoint remains available.
+  clients that do not connect to non-standard ports.
 
 ## Environment limitations
 
@@ -258,20 +233,18 @@ Commands run from the project working directory with Python 3.11.17 and
   reported **211 passed, 1 deselected** at **91.30%** coverage, Bandit reported
   no issues, pip-audit found no known vulnerabilities, and `uv build` produced
   the `stpt_mcp-0.3.0` wheel and sdist.
-- Deployed v0.3.0 on the private host, added
-  `STPT_MCP_PUBLIC_URL=https://vladiro.go.ro` to the root-only environment file,
-  and added the OAuth path routes to the existing Caddy site on port 443.
+- Deployed v0.3.0 on the self-hosted deployment with `STPT_MCP_PUBLIC_URL` set
+  to its public HTTPS origin, and added the OAuth path routes to the reverse
+  proxy.
 - Verified through the public HTTPS endpoint:
-  - discovery metadata returns `200` with issuer `https://vladiro.go.ro`, DCR,
-    PKCE, refresh tokens, and public-client auth methods;
-  - protected-resource metadata returns `200` and identifies
-    `https://vladiro.go.ro/mcp`;
+  - discovery metadata returns `200` with the configured issuer, DCR, PKCE,
+    refresh tokens, and public-client auth methods;
+  - protected-resource metadata returns `200` and identifies the `/mcp`
+    resource;
   - unauthenticated MCP returns `401` with a `resource_metadata` challenge;
   - DCR, browser login, authorization-code exchange, refresh-token issuance, and
     an authenticated MCP `initialize` all succeeded;
-  - the static bearer token still returns `200`, and a wrong token returns `401`;
-  - the existing root redirect still returns `301` to its configured
-    destination.
+  - a wrong token returns `401`.
 
 ## 2026-10-21 — v0.3.0 release and installation check
 
@@ -279,9 +252,6 @@ Commands run from the project working directory with Python 3.11.17 and
   <https://github.com/vladirocox/stpt-mcp/releases/tag/v0.3.0>.
 - Verified the release asset installs in a fresh Python 3.11 virtual
   environment and reports `stpt-mcp 0.3.0`.
-- Confirmed the deployed public endpoint still accepts the legacy static bearer
-  token on both `https://vladiro.go.ro/mcp` and
-  `https://vladiro.go.ro:9000/mcp` while OAuth is enabled.
 
 ## 2026-10-21 — v0.3.1 maintenance release
 
@@ -306,28 +276,24 @@ Commands run from the project working directory with Python 3.11.17 and
   [v0.3.1](https://github.com/vladirocox/stpt-mcp/releases/tag/v0.3.1) with the
   wheel and sdist assets, then installed the published wheel in another fresh
   Python 3.11 environment; it reports `stpt-mcp 0.3.1`.
-- Updated `/opt/stpt-mcp` to commit `2323672`, installed the 0.3.1 wheel in the
-  service virtual environment, and restarted `stpt-mcp`. The service is active
-  and enabled; `/healthz` returns `0.3.1`.
+- Updated the self-hosted deployment to commit `2323672`, installed the 0.3.1
+  wheel in the service virtual environment, and restarted the service. It is
+  active and enabled; `/healthz` returns `0.3.1`.
 - Verified through the public HTTPS endpoints:
   - OAuth discovery 200, protected-resource metadata 200, dynamic registration
     201, login page 200, authorization redirect 302, code exchange 200, refresh
     exchange 200, and an OAuth-authenticated MCP client listed seven tools and
     returned `get_service_status` with `status: ok` and `ready: true`;
-  - the static bearer token listed seven tools and returned successful
-    `get_service_status` and `search_stops` results on both
-    `https://vladiro.go.ro/mcp` and `https://vladiro.go.ro:9000/mcp`;
-  - the legacy health endpoint reports `0.3.1`, and the root site still returns
-    `301` to its configured destination.
+  - bearer-token authentication listed seven tools and returned successful
+    `get_service_status` and `search_stops` results;
+  - the health endpoint reports `0.3.1`.
 - Re-ran the opt-in live smoke test with
   `STPT_MCP_RUN_NETWORK_TESTS=1 uv run pytest -m network`; it passed
   (**1 passed, 211 deselected**) against the live STPT live, alerts, and
   vehicles endpoints.
-- The restart invalidated the in-memory OAuth tokens as documented; the static
-  bearer token remains valid. Existing OAuth clients must sign in again.
-- The deployment host could not reach its own public hostname because of NAT
-  hairpin behaviour. Public endpoint checks were executed from the external
-  workstation that manages the host.
+- The restart invalidated the in-memory OAuth tokens as documented. Existing
+  OAuth clients must sign in again.
+- Public endpoint checks were executed from outside the deployment host.
 
 ## 2026-10-21 — v0.3.2 tool surface scope
 
@@ -414,3 +380,37 @@ Commands run from the project working directory with Python 3.11.17 and
 - Not yet done: PyPI trusted-publisher setup (owner action), the `v0.3.4`
   GitHub release, the `Publish` workflow run, and installation from PyPI. None
   of these is claimed here.
+
+## 2026-10-23 — v0.3.4 published on PyPI
+
+- The repository owner registered the PyPI trusted publisher for `stpt-mcp`
+  (workflow `publish.yml`, environment `pypi`), merged PR
+  [#16](https://github.com/vladirocox/stpt-mcp/pull/16), and published the
+  [v0.3.4](https://github.com/vladirocox/stpt-mcp/releases/tag/v0.3.4) release.
+- The `Publish` workflow succeeded in all three jobs (build, PyPI upload, and
+  release assets). The release carries the wheel and sdist.
+- PyPI serves <https://pypi.org/project/stpt-mcp/0.3.4/> with author
+  `Vlad Ohai`. `pip install stpt-mcp==0.3.4` in a fresh Python 3.11
+  environment reports `stpt-mcp 0.3.4`.
+- Started the server with `uvx stpt-mcp serve --transport stdio`, as an MCP
+  client configuration would, and connected with the official MCP client: it
+  reported version 0.3.4 and seven read-only tools; `search_stops`,
+  `list_routes`, and `get_service_status` succeeded. The live-data tools
+  returned a structured `upstream_unavailable` error because that test
+  environment could not reach STPT; this is the documented behavior, not a
+  defect.
+
+## 2026-10-23 — v0.3.5 documentation cleanup
+
+- Removed real deployment details from this log and the implementation plan
+  and kept the verification evidence in generic terms. Earlier entries
+  describing the self-hosted deployment were rewritten accordingly.
+- Added an `AGENTS.md` rule and a release-checklist item against recording
+  deployment details.
+- Verification for v0.3.5 (local): Ruff format/lint passed; strict MyPy passed;
+  pytest reported **211 passed, 1 deselected** at **91.30%** coverage; Bandit
+  reported no issues; pip-audit found no known vulnerabilities in the auditable
+  dependencies; `uv build` produced the `stpt_mcp-0.3.5` wheel and sdist;
+  `twine check --strict` passed for both; a scan of both artifacts found no
+  deployment hostnames, addresses, or paths; the metadata and `LICENSE` name
+  `Vlad Ohai`.

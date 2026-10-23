@@ -11,6 +11,9 @@ actually ran and passed. Environmental limitations are recorded in
 - [ ] Version in `pyproject.toml` and `src/stpt_mcp/__init__.py` agree.
 - [ ] No secrets, tokens, `.env` files, caches, build outputs, or editor files
       are tracked.
+- [ ] No real deployment details in docs or commit messages: hostnames,
+      domains, IP addresses, ports, server paths, or network setup (see
+      `AGENTS.md`).
 - [ ] `AGENTS.md`, README, plan, and execution log reflect the current behavior.
 - [ ] No unresolved `TODO`/`FIXME` in shipped code.
 

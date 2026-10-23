@@ -22,6 +22,11 @@ public transport in Timișoara. It is deliberately independent of Home Assistant
 - Secure HTTP defaults: localhost bind, DNS-rebinding and Origin validation,
   request body limit, bounded concurrency, and optional bearer authentication.
 - Do not claim Docker, CI, or publication success unless it was actually run.
+- Never record details of a real deployment in the repository, its docs, or
+  commit messages: no hostnames, domains, IP addresses, ports, router or
+  firewall setup, server paths, account names, certificate details, or which
+  credentials a live server accepts. Use `mcp.example.com` and placeholders, and
+  describe deployment checks generically ("the public HTTPS endpoint").
 
 ## Commands
 
