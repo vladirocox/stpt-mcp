@@ -1,9 +1,11 @@
 # Implementation plan
 
-Status: **v0.3.3 deployed with public HTTPS and OAuth**
+Status: **v0.3.3 deployed with public HTTPS and OAuth; v0.3.4 PyPI publication
+prepared, not yet released**
 
 This plan is the delivery contract for `v0.1.0`, `v0.2.0`, `v0.3.0`,
-`v0.3.1`, `v0.3.2`, and the `v0.3.3` documentation release.
+`v0.3.1`, `v0.3.2`, the `v0.3.3` documentation release, and the `v0.3.4` PyPI
+publication release.
 Checkboxes are updated only
 after the corresponding check has actually run. A checked item with a command
 means the command passed; environmental limitations are recorded separately.
@@ -186,6 +188,22 @@ limitation · **N/A** not applicable.
   README, in English and Romanian, and to its HACS `info.md`.
 - [x] Keep the cross-references documentation-only. The two projects remain
   independently deployable, with no runtime, build, or test dependency.
+
+## 14. PyPI publication (v0.3.4)
+
+- [x] Name the author as Vlad Ohai in `LICENSE`, `pyproject.toml`, and the
+  README.
+- [x] Add `.github/workflows/publish.yml`: on a published GitHub release, check
+  the tag against the package version, build, upload to PyPI through trusted
+  publishing, and attach the wheel and sdist to the release.
+- [x] Document `pip install stpt-mcp`, `uvx stpt-mcp`, and a `uvx` client
+  configuration in the README; make README links absolute for the PyPI page.
+- [x] Build locally and pass `twine check --strict` on the wheel and sdist.
+- [ ] Configure the trusted publisher for `stpt-mcp` on PyPI (owner action).
+- [ ] Publish the `v0.3.4` GitHub release and confirm the `Publish` workflow
+  uploaded to PyPI.
+- [ ] Install `stpt-mcp==0.3.4` from PyPI in a fresh environment and run
+  `stpt-mcp --version`.
 
 ## Explicit non-goals for v0.1.0
 

@@ -386,3 +386,31 @@ Commands run from the project working directory with Python 3.11.17 and
   no issues; pip-audit found no known vulnerabilities in the auditable
   dependencies; and `uv build` produced the `stpt_mcp-0.3.3` wheel and sdist
   with the asset present.
+
+## 2026-10-23 — v0.3.4 PyPI publication release (prepared)
+
+- Named the author as Vlad Ohai in `LICENSE`, `pyproject.toml`, and a new
+  README "Author" section.
+- Added `.github/workflows/publish.yml`. On a published GitHub release it
+  checks that the tag matches both `pyproject.toml` and `__init__.py`, runs
+  `uv build` and `twine check --strict`, uploads to PyPI through trusted
+  publishing (environment `pypi`, `id-token: write`), and attaches the wheel and
+  sdist to the release.
+- Documented `pip install stpt-mcp`, `uvx stpt-mcp`, and a `uvx` stdio client
+  configuration in the README. Made README links and the screenshot absolute
+  GitHub URLs so the PyPI project page renders them.
+- Bumped the package version to 0.3.4 and refreshed the documented release
+  artifact references; `uv lock` updated the project entry.
+- Verification for v0.3.4 (local): Ruff format/lint passed; strict MyPy passed;
+  pytest reported **211 passed, 1 deselected** at **91.30%** coverage; Bandit
+  reported no issues; pip-audit found no known vulnerabilities in the auditable
+  dependencies; `uv build` produced the `stpt_mcp-0.3.4` wheel and sdist;
+  `twine check --strict` passed for both; the wheel metadata names
+  `Vlad Ohai` and the long description has no relative links.
+- Installed the wheel in a fresh Python 3.11 virtual environment:
+  `stpt-mcp --version` printed `stpt-mcp 0.3.4`, and a stdio
+  `initialize` + `tools/list` smoke test returned version 0.3.4 and the seven
+  tools.
+- Not yet done: PyPI trusted-publisher setup (owner action), the `v0.3.4`
+  GitHub release, the `Publish` workflow run, and installation from PyPI. None
+  of these is claimed here.

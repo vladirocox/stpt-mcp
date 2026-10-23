@@ -67,6 +67,8 @@ uv run stpt-mcp token
   log.
 - `tests/` — unit, integration, protocol, end-to-end, and opt-in network tests.
 - `Dockerfile`, `compose.yaml`, `.github/workflows/ci.yml` — deployment and CI.
+- `.github/workflows/publish.yml` — on a published GitHub release, uploads the
+  wheel and sdist to PyPI (trusted publishing) and attaches them to the release.
 - `scripts/generate_network_snapshot.py` — manual snapshot refresh; never in CI.
 
 ## Engineering conventions
