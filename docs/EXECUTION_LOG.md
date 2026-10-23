@@ -471,3 +471,31 @@ intentionally not recorded in this public log.
   targeted tests fail (frozen-clock detector, clock jump, DST resolution,
   unverified-as-live, withholding, future vehicle timestamps, stale-cache live
   flag, past live and schedule departures, timetable grace day).
+
+## 2026-10-23 — v0.3.7 published and deployed
+
+- PR [#21](https://github.com/vladirocox/stpt-mcp/pull/21) merged after the
+  required checks passed (tests on Python 3.11–3.13, security, build,
+  container); no protection bypass was used. Tag `v0.3.7` points at the merge
+  commit `01db5c1`.
+- The [v0.3.7 release](https://github.com/vladirocox/stpt-mcp/releases/tag/v0.3.7)
+  ran the `Publish` workflow (run 39981963172): build, PyPI upload through
+  trusted publishing, and release assets all succeeded. PyPI serves
+  <https://pypi.org/project/stpt-mcp/0.3.7/> (wheel SHA-256 `f3452000…`);
+  `pip install stpt-mcp==0.3.7` in a fresh Python 3.12 environment reports
+  0.3.7, includes the timetable, and no longer installs BeautifulSoup.
+- The self-hosted deployment was upgraded from 0.3.6 after backing up its
+  virtual environment: the PyPI wheel was downloaded, its SHA-256 compared with
+  PyPI's, and installed; the service restarted cleanly with no errors logged.
+  Health and MCP calls succeeded on the host and through the public HTTPS
+  endpoint.
+- Live check after the upstream feed recovered (it alternated between working
+  and HTTP 503): `get_arrivals(stop_id="135", line="14")` returned
+  `source: live`, `freshness: fresh` at 19:00:14 (skew −14 s: 19:02/2,
+  19:20/20, 19:35/35 min) and again at 19:17:46 (skew +14 s: 19:18/1,
+  19:35/18, 19:51/34), so the 19:35 trip counted down from 35 to 18 minutes and
+  `arrival_time - now` matched `eta_minutes` both times. During the 503 periods
+  the same call returned the timetable (`partial`, `upstream_http_error`,
+  `source: schedule`, `live: false`; 19:07, 19:21, 19:36, … for line 14,
+  identical to the GTFS `stop_times`), counting down minute by minute.
+

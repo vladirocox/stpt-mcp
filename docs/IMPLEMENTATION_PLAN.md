@@ -260,9 +260,13 @@ limitation · **N/A** not applicable.
 - [x] Expose `live_feed` in `get_service_status`.
 - [x] Regression tests that fail with each fix reverted, plus a running-feed test
   proving the countdown and the `arrival_time`/`eta_minutes` invariant.
-- [ ] Publish `v0.3.7` through the release workflow and redeploy.
-- [ ] Re-run the live countdown check when the upstream feed recovers (see
-  `LESSONS.md`).
+- [x] Publish `v0.3.7` through the release workflow and redeploy.
+- [x] Re-run the live countdown check when the upstream feed recovers (see
+  `LESSONS.md`). Done on 2026-10-23 while the feed was intermittently
+  available; repeat when it is stable.
+- [ ] Make `get_service_status.live_feed` say when the most recent live fetch
+  failed; it currently keeps the last successful assessment, dated by
+  `assessed_at`.
 
 ## Explicit non-goals for v0.1.0
 

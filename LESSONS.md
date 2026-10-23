@@ -40,7 +40,7 @@ Written by /aar-loop after each session's After Action Review. Read this file be
 
 ## 2026-10-23 -- When the upstream live arrivals feed recovers from freezing, re-run the live check before closing any release: call get_service_status and expect live_feed.skew_seconds near 0 and recent_stops mostly fresh; call get_arrivals(stop_id="135", line="14") twice at least three minutes apart and expect source live, freshness fresh, a smaller eta_minutes on the second call, and arrival_time minus local now equal to eta_minutes within one minute. Record the result in docs/EXECUTION_LOG.md.
 - Expected: A frozen feed skews by minutes; after upstream recovery the server should report skew near zero and ETAs should decrease between calls.
-- Actual: The feed stayed frozen through 0.3.6 and 0.3.7 (byte-identical payloads on every sampled stop), so the countdown proof only ran against a deterministic fake feed whose clock advances (tests/integration/test_freshness.py).
+- Actual: The feed was frozen through the 0.3.6 and 0.3.7 work (byte-identical payloads on every sampled stop), so the countdown proof first ran against a deterministic fake feed (tests/integration/test_freshness.py). After the 0.3.7 deploy the feed recovered intermittently and the live check passed (19:35 trip: 35 min at 19:00, 18 min at 19:17); repeat it once the feed is stable, because it still alternated with HTTP 503.
 - Why: Live recovery was never re-verified after the fix, so the release proof was conditional on an upstream that had not recovered.
 - tags: live-freshness,live-eta,recovery
 
