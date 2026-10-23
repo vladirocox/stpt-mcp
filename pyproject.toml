@@ -9,7 +9,7 @@ description = "An unofficial MCP server for STPT public transport in Timișoara"
 readme = "README.md"
 license = { file = "LICENSE" }
 requires-python = ">=3.11"
-authors = [{ name = "Vlad Irocox", email = "vladirocox@users.noreply.github.com" }]
+authors = [{ name = "Vlad Ohai", email = "vladirocox@users.noreply.github.com" }]
 keywords = ["mcp", "stpt", "transit", "tram", "bus", "timisoara"]
 classifiers = [
   "Development Status :: 3 - Alpha",

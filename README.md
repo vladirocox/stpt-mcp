@@ -290,8 +290,14 @@ All three are unofficial and are not affiliated with STPT.
   to sign in again. It is not a multi-user identity provider.
 - Live arrivals do not carry an upstream observation timestamp.
 
+## Author
+
+Created and maintained by **Vlad Ohai**
+([GitHub](https://github.com/vladirocox)).
+
 ## License and attribution
 
-MIT licensed. STPT data remains the property of its respective owners. See
-[LICENSE](LICENSE) and [NOTICE](NOTICE). OpenStreetMap-derived coordinates, if
-present, are © OpenStreetMap contributors under the ODbL.
+MIT licensed, © 2026 Vlad Ohai. STPT data remains the property of its
+respective owners. See [LICENSE](LICENSE) and [NOTICE](NOTICE).
+OpenStreetMap-derived coordinates, if present, are © OpenStreetMap contributors
+under the ODbL.
