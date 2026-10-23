@@ -1,11 +1,11 @@
 # Implementation plan
 
-Status: **v0.3.3 deployed with public HTTPS and OAuth; v0.3.4 PyPI publication
-prepared, not yet released**
+Status: **v0.3.4 published on PyPI; v0.3.5 documentation cleanup prepared, not
+yet released**
 
 This plan is the delivery contract for `v0.1.0`, `v0.2.0`, `v0.3.0`,
-`v0.3.1`, `v0.3.2`, the `v0.3.3` documentation release, and the `v0.3.4` PyPI
-publication release.
+`v0.3.1`, `v0.3.2`, the `v0.3.3` documentation release, the `v0.3.4` PyPI
+publication release, and the `v0.3.5` documentation cleanup.
 Checkboxes are updated only
 after the corresponding check has actually run. A checked item with a command
 means the command passed; environmental limitations are recorded separately.
@@ -125,22 +125,18 @@ limitation · **N/A** not applicable.
 ## 9. Remote deployment (v0.2.0)
 
 - [x] Add `stpt-mcp token` and verify generated-token authentication.
-- [x] Install v0.2.0 in `/opt/stpt-mcp` on the deployment host under a
-  dedicated virtual environment.
-- [x] Create and enable `stpt-mcp.service`; run the MCP process on an internal
-  private port with the public host and local hostnames in the allowlist.
-- [x] Store the bearer token in a root-only environment file.
-- [x] Allow the public port through `ufw`; verify the existing router forwarding.
-- [x] Add a Caddy site using the existing Let's Encrypt certificate,
-  reverse-proxying to the internal port with response buffering disabled.
+- [x] Install v0.2.0 on a self-hosted deployment under a dedicated virtual
+  environment and a systemd service.
+- [x] Keep the bearer token out of the repository, in a protected environment
+  file on the host.
+- [x] Put the endpoint behind an HTTPS reverse proxy with response buffering
+  disabled, as described in `docs/PUBLIC_HTTPS.md`.
 - [x] Verify HTTPS `/healthz`, unauthenticated `401`, authenticated MCP
   initialize, the seven tools, a stop lookup, live arrivals, and service status
   over the public HTTPS endpoint.
-- [x] Verify the existing root site still redirects to its configured
-  destination, and that plain HTTP to the public MCP port is rejected.
 - [x] Verify service restart and boot enablement.
-- [x] Leave a removal note in the service account's home directory with removal
-  and firewall/router rollback commands.
+- [x] Keep removal and rollback instructions with the deployment, outside the
+  repository.
 
 ## 10. OAuth for hosted clients (v0.3.0)
 
@@ -166,8 +162,8 @@ limitation · **N/A** not applicable.
   pip-audit, and the package build.
 - [x] Keep the OAuth per-process token-state limitation in the public docs.
 - [x] Publish v0.3.1 and verify the release asset installation.
-- [x] Deploy v0.3.1 and verify public OAuth metadata, token exchange, the static
-  bearer token, and the seven MCP tools on ports 443 and 9000.
+- [x] Deploy v0.3.1 and verify public OAuth metadata, token exchange, and the
+  seven MCP tools over HTTPS.
 
 ## 12. Tool surface scope (v0.3.2)
 
@@ -199,11 +195,24 @@ limitation · **N/A** not applicable.
 - [x] Document `pip install stpt-mcp`, `uvx stpt-mcp`, and a `uvx` client
   configuration in the README; make README links absolute for the PyPI page.
 - [x] Build locally and pass `twine check --strict` on the wheel and sdist.
-- [ ] Configure the trusted publisher for `stpt-mcp` on PyPI (owner action).
-- [ ] Publish the `v0.3.4` GitHub release and confirm the `Publish` workflow
+- [x] Configure the trusted publisher for `stpt-mcp` on PyPI (owner action).
+- [x] Publish the `v0.3.4` GitHub release and confirm the `Publish` workflow
   uploaded to PyPI.
-- [ ] Install `stpt-mcp==0.3.4` from PyPI in a fresh environment and run
+- [x] Install `stpt-mcp==0.3.4` from PyPI in a fresh environment and run
   `stpt-mcp --version`.
+
+## 15. Documentation cleanup (v0.3.5)
+
+- [x] Remove real deployment details (hostname, ports, network and firewall
+  setup, server paths, accepted credentials, certificate details) from
+  `docs/EXECUTION_LOG.md` and this plan, keeping the verification evidence in
+  generic terms.
+- [x] Add an `AGENTS.md` rule and a release-checklist item so deployment details
+  are not recorded again.
+- [x] Confirm the author is named as Vlad Ohai in `LICENSE`, the package
+  metadata, and the README.
+- [ ] Publish the `v0.3.5` GitHub release and confirm the `Publish` workflow
+  uploaded to PyPI.
 
 ## Explicit non-goals for v0.1.0
 
