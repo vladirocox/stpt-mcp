@@ -3,6 +3,8 @@
 This repository is a standalone, publicly distributable MCP server for STPT
 public transport in Timișoara. It is deliberately independent of Home Assistant.
 
+Read `LESSONS.md` before starting new work in this project.
+
 ## Non-negotiable constraints
 
 - Do not add a Home Assistant or HACS dependency.
