@@ -77,6 +77,15 @@ def test_parse_rejects_invalid_minutes_and_foreign_shapes() -> None:
     assert warnings == ()
 
 
+def test_parse_accepts_after_midnight_hours() -> None:
+    html = (
+        '<html><table><tr data-code="85" data-times="24|10-2.1_T, 25|05-2.1_T"></tr></table></html>'
+    )
+    times, warnings = parse_schedule_page(html, stop_id="85", target_shapes={"2.1_T"})
+    assert [(entry.hour, entry.minute) for entry in times] == [(24, 10), (25, 5)]
+    assert warnings == ()
+
+
 async def test_provider_fetches_all_direction_pages(
     network: NetworkIndex, clock: MutableClock
 ) -> None:
@@ -116,6 +125,34 @@ async def test_provider_fetches_all_direction_pages(
         assert all(
             request.url.params.get("custom_value") == "21.10.2026" for request in fake.requests
         )
+    finally:
+        await provider.close()
+        await upstream.close()
+
+
+async def test_provider_rolls_after_midnight_times_to_the_next_day(
+    network: NetworkIndex, clock: MutableClock
+) -> None:
+    fake = seed_fake_stpt(FakeSTPT())
+    fake.set_text(
+        f"{SCHEDULE_BASE_URL}/linie-transport-public-2/",
+        "<html><table>"
+        '<tr data-code="85" data-times="24|10-2.1_T, 25|05-2.1_T"></tr>'
+        "</table></html>",
+    )
+    settings = make_test_settings()
+    upstream = make_upstream(settings, fake, clock)
+    provider = ScheduleProvider(
+        upstream, settings, network, clock=clock.monotonic, wall_clock=clock.wall
+    )
+    try:
+        result = await provider.fetch_stop_schedule(network.require_stop("85"), SERVICE_DATE)
+        departures = [
+            departure.departure_at.strftime("%Y-%m-%d %H:%M")
+            for departure in result.value
+            if departure.line == "2"
+        ]
+        assert departures == ["2026-10-22 00:10", "2026-10-22 01:05"]
     finally:
         await provider.close()
         await upstream.close()

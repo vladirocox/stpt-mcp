@@ -93,6 +93,7 @@ class Settings:
     max_cache_entries: int = 2048
     schedule_page_cache_entries: int = 1024
     vehicle_stale_after_seconds: float = 120.0
+    live_clock_skew_tolerance_seconds: float = 180.0
 
     auth_token: str | None = field(default=None, repr=False)
     public_url: str | None = field(default=None, repr=False)
@@ -145,6 +146,7 @@ class Settings:
             "vehicles_ttl_seconds": self.vehicles_ttl_seconds,
             "vehicles_stale_ttl_seconds": self.vehicles_stale_ttl_seconds,
             "vehicle_stale_after_seconds": self.vehicle_stale_after_seconds,
+            "live_clock_skew_tolerance_seconds": self.live_clock_skew_tolerance_seconds,
             "session_idle_timeout_seconds": self.session_idle_timeout_seconds,
         }
         for name, value in positive_numbers.items():
@@ -345,6 +347,9 @@ class Settings:
             max_cache_entries=integer("STPT_MCP_MAX_CACHE_ENTRIES", 2048),
             schedule_page_cache_entries=integer("STPT_MCP_SCHEDULE_PAGE_CACHE_ENTRIES", 1024),
             vehicle_stale_after_seconds=number("STPT_MCP_VEHICLE_STALE_AFTER_SECONDS", 120.0),
+            live_clock_skew_tolerance_seconds=number(
+                "STPT_MCP_LIVE_CLOCK_SKEW_TOLERANCE_SECONDS", 180.0
+            ),
             auth_token=auth_token,
             public_url=(env.get("STPT_MCP_PUBLIC_URL") or "").strip() or None,
             oauth_password=(env.get("STPT_MCP_OAUTH_PASSWORD") or "").strip() or None,

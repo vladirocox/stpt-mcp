@@ -18,6 +18,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any, cast
 from urllib.parse import parse_qs, urlsplit
+from zoneinfo import ZoneInfo
 
 import httpx
 import uvicorn
@@ -52,6 +53,40 @@ def load_text(name: str) -> str:
 
 def load_json(name: str) -> Any:
     return json.loads(load_text(name))
+
+
+def rebase_live_payload(payload: Any, *, now: datetime | None = None) -> Any:
+    """Return a live payload whose display times track ``now``.
+
+    Static fixtures are useful for deterministic unit tests, but a real feed
+    cannot stand still. The loopback e2e server rebases each ``HH:MM|minutes``
+    pair so the implied observation clock stays at the wall clock.
+    """
+
+    current = (now or datetime.now(UTC)).astimezone(ZoneInfo("Europe/Bucharest"))
+    for item in payload:
+        if not isinstance(item, dict):
+            continue
+        times = item.get("times")
+        if not isinstance(times, list):
+            continue
+        rebased: list[Any] = []
+        for entry in times:
+            if not isinstance(entry, str):
+                rebased.append(entry)
+                continue
+            _clock, separator, minutes_text = entry.partition("|")
+            if not separator:
+                rebased.append(entry)
+                continue
+            try:
+                eta = int(minutes_text)
+            except ValueError:
+                rebased.append(entry)
+                continue
+            rebased.append(f"{current + timedelta(minutes=eta):%H:%M}|{eta}")
+        item["times"] = rebased
+    return payload
 
 
 class MutableClock:
@@ -362,7 +397,7 @@ class FakeUpstreamHTTPServer:
         if route == "/proxy-smtt-cache.php":
             stop_id = (query.get("stopid") or [""])[0]
             payload = load_json(f"live_{stop_id}.json") if stop_id in {"85", "60"} else []
-            self._send_json(handler, payload)
+            self._send_json(handler, rebase_live_payload(payload))
             return
         if route == "/proxy-alerts.php":
             self._send_json(handler, load_json("alerts.json"))

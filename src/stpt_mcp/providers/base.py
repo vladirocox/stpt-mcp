@@ -18,6 +18,7 @@ class ProviderResult(Generic[T]):
     warnings: tuple[str, ...] = ()
     complete: bool = True
     stale: bool = False
+    observed_at: datetime | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -26,8 +27,14 @@ class LiveArrival:
     destination: str
     mode: VehicleMode
     eta_minutes: int
-    arrival_time: str | None
+    """ETA in minutes as reported by the feed at fetch time."""
+
+    arrival_at: datetime
+    """Absolute arrival instant anchored to the fetch time, in UTC."""
+
     vehicle_id: str | None
+    feed_time: str | None = None
+    """Raw ``HH:MM`` display time from the feed. Kept only for freshness checks."""
 
 
 @dataclass(frozen=True, slots=True)

@@ -2,9 +2,37 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
+
 from stpt_mcp.models import DataSource, Status
 from stpt_mcp.network import NetworkIndex
 from tests.support import FakeSTPT, MutableClock, ServiceFactory, make_test_settings
+
+BUCHAREST = ZoneInfo("Europe/Bucharest")
+LIVE_URL = "https://live.test/proxy-smtt-cache.php"
+FROZEN_LIVE = [
+    {
+        "route": "7",
+        "type": "tv",
+        "destination": "Calea Torontalului (Ciocanul)",
+        "vehicleId": None,
+        "times": ["16:10|10", "16:26|26"],
+    }
+]
+
+
+def minutes_until(arrival_time: str, now: datetime) -> float:
+    """Resolve a public ``HH:MM`` against ``now`` and return the signed minutes."""
+
+    local = now.astimezone(BUCHAREST)
+    hour, minute = (int(part) for part in arrival_time.split(":"))
+    candidate = local.replace(hour=hour, minute=minute, second=0, microsecond=0)
+    nearest = min(
+        (candidate - timedelta(days=1), candidate, candidate + timedelta(days=1)),
+        key=lambda value: abs((value - local).total_seconds()),
+    )
+    return (nearest - local).total_seconds() / 60
 
 
 async def test_live_arrivals_are_preferred(
@@ -26,6 +54,7 @@ async def test_live_arrivals_are_preferred(
     assert result.provenance.source is DataSource.LIVE
     assert result.provenance.is_stale is False
     assert result.provenance.observed_at == result.provenance.fetched_at
+    assert result.provenance.data_age_seconds == 0
     assert result.provenance.fallback_reason is None
     assert any("duplicate" in warning for warning in result.provenance.warnings)
     assert result.provenance.fetched_at.tzinfo is not None
@@ -67,6 +96,90 @@ async def test_live_eta_decreases_as_time_passes(
     second = await service.get_arrivals("85")
     assert [arrival.eta_minutes for arrival in first.arrivals] == [3, 5, 8, 10]
     assert [arrival.eta_minutes for arrival in second.arrivals] == [2, 4, 7, 9]
+    assert first.provenance is not None
+    assert second.provenance is not None
+    assert second.provenance.source is DataSource.LIVE
+    assert second.provenance.fetched_at == first.provenance.fetched_at
+    assert second.provenance.observed_at == first.provenance.observed_at
+    assert second.provenance.data_age_seconds == 90
+
+
+async def test_arrival_time_and_eta_always_agree(
+    service_factory: ServiceFactory, fake: FakeSTPT, clock: MutableClock
+) -> None:
+    service, _ = await service_factory(fake=fake)
+    for stop_id in ("85", "59"):
+        result = await service.get_arrivals(stop_id)
+        assert result.arrivals
+        for arrival in result.arrivals:
+            assert arrival.arrival_time is not None
+            delta = minutes_until(arrival.arrival_time, clock.wall())
+            assert abs(delta - arrival.eta_minutes) <= 1.5, (arrival, delta)
+
+
+async def test_frozen_live_feed_falls_back_to_schedule(
+    service_factory: ServiceFactory, fake: FakeSTPT
+) -> None:
+    fake.set_json(LIVE_URL, FROZEN_LIVE)
+    service, _ = await service_factory(fake=fake)
+    result = await service.get_arrivals("85")
+    assert result.status is Status.OK
+    assert result.provenance is not None
+    assert result.provenance.source is DataSource.SCHEDULE
+    assert result.provenance.fallback_reason == "live_predictions_stale"
+    assert result.provenance.is_stale is False
+    assert result.provenance.observed_at is None
+    assert all(arrival.live is False for arrival in result.arrivals)
+    assert any("look stale" in warning for warning in result.provenance.warnings)
+    assert any("schedule fallback" in warning.lower() for warning in result.provenance.warnings)
+
+
+async def test_stale_live_is_reference_only_when_schedule_fails(
+    service_factory: ServiceFactory, fake: FakeSTPT
+) -> None:
+    fake.set_json(LIVE_URL, FROZEN_LIVE)
+    for path in ("2", "4-r", "7"):
+        fake.fail_next(f"https://smtt.test/linie-transport-public-{path}/", times=3)
+    service, _ = await service_factory(fake=fake)
+    result = await service.get_arrivals("85")
+    assert result.status is Status.PARTIAL
+    assert result.count == 2
+    assert result.provenance is not None
+    assert result.provenance.source is DataSource.LIVE
+    assert result.provenance.is_stale is True
+    assert result.provenance.observed_at is None
+    assert result.provenance.data_age_seconds is None
+    assert result.provenance.fallback_reason == "live_predictions_stale"
+    assert result.error is not None
+    assert result.error.code.value == "data_stale"
+    assert all(arrival.live is False for arrival in result.arrivals)
+    assert any("reference only" in warning for warning in result.provenance.warnings)
+
+
+async def test_data_age_tracks_upstream_observation_time(
+    service_factory: ServiceFactory, fake: FakeSTPT, clock: MutableClock
+) -> None:
+    # The feed claims it is 13:28 while the wall clock is 13:30. That is inside
+    # the skew tolerance, so the data is fresh but two minutes old.
+    fake.set_json(
+        LIVE_URL,
+        [
+            {
+                "route": "7",
+                "type": "tv",
+                "destination": "Calea Torontalului (Ciocanul)",
+                "times": ["13:33|5"],
+            }
+        ],
+    )
+    service, _ = await service_factory(fake=fake)
+    result = await service.get_arrivals("85")
+    assert result.provenance is not None
+    assert result.provenance.source is DataSource.LIVE
+    assert result.provenance.is_stale is False
+    assert result.provenance.fetched_at == clock.wall()
+    assert result.provenance.observed_at == clock.wall() - timedelta(minutes=2)
+    assert result.provenance.data_age_seconds == 120
 
 
 async def test_stale_last_known_good_after_refresh_failure(

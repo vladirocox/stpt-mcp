@@ -7,7 +7,7 @@ import re
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from datetime import time as time_type
 from zoneinfo import ZoneInfo
 
@@ -21,7 +21,7 @@ from stpt_mcp.network import NetworkIndex, StopRecord
 from stpt_mcp.providers.base import ProviderResult, ScheduleDeparture
 from stpt_mcp.upstream import UpstreamClient
 
-_ATTR_TIME_RE = re.compile(r"^(?P<hour>[01]?\d|2[0-3])\|(?P<rest>.*)$")
+_ATTR_TIME_RE = re.compile(r"^(?P<hour>[01]?\d|2[0-9])\|(?P<rest>.*)$")
 
 
 @dataclass(frozen=True, slots=True)
@@ -125,9 +125,10 @@ class ScheduleProvider:
                     continue
                 if schedule_time.shape_id not in target.shapes:
                     continue
+                day_offset, hour_of_day = divmod(schedule_time.hour, 24)
                 departure_at = datetime.combine(
-                    service_date,
-                    time_type(schedule_time.hour, schedule_time.minute),
+                    service_date + timedelta(days=day_offset),
+                    time_type(hour_of_day, schedule_time.minute),
                     tzinfo=self._zone,
                 )
                 key = (route.line, direction, departure_at)

@@ -4,20 +4,20 @@
     "type": "tv",
     "destination": "Calea Torontalului (Ciocanul)",
     "vehicleId": "3512",
-    "times": ["14:03|3", "14:10|10"]
+    "times": ["13:33|3", "13:40|10"]
   },
   {
     "route": "2",
     "type": "tv",
     "destination": "Calea Torontalului (Ciocanul)",
     "vehicleId": null,
-    "times": ["14:05|5"]
+    "times": ["13:35|5"]
   },
   {
     "route": "4",
     "type": "tv",
     "destination": "Calea Torontalului (Ciocanul)",
     "vehicleId": null,
-    "times": ["14:08|8", "14:08|8"]
+    "times": ["13:38|8", "13:38|8"]
   }
 ]

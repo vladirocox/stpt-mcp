@@ -110,6 +110,7 @@ header-based clients to keep working while hosted clients use sign-in.
 | `STPT_MCP_VEHICLES_TTL_SECONDS` | `60` | Vehicles freshness. |
 | `STPT_MCP_VEHICLES_STALE_TTL_SECONDS` | `600` | Vehicles stale window. |
 | `STPT_MCP_VEHICLE_STALE_AFTER_SECONDS` | `120` | Per-vehicle observation age threshold. |
+| `STPT_MCP_LIVE_CLOCK_SKEW_TOLERANCE_SECONDS` | `180` | Maximum divergence between the live feed's implied clock and the real clock before the feed is treated as stale. |
 | `STPT_MCP_SCHEDULE_LOOKAHEAD_MINUTES` | `180` | Schedule departure window; 1–1440. |
 | `STPT_MCP_MAX_CACHE_ENTRIES` | `2048` | Arrival/schedule/alert/vehicle cache bound. |
 | `STPT_MCP_SCHEDULE_PAGE_CACHE_ENTRIES` | `1024` | HTML page cache bound. |

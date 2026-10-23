@@ -4,6 +4,46 @@ All notable changes are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [0.3.6] - 2026-10-23
+
+### Fixed
+
+- `get_arrivals` no longer returns a frozen ETA as live. The arrivals feed has no
+  observation timestamp, so the parser derives one from each prediction's
+  display time and remaining minutes. When that implied clock differs from the
+  real clock by more than `STPT_MCP_LIVE_CLOCK_SKEW_TOLERANCE_SECONDS`
+  (default 180 s), the feed is rejected, the schedule fallback is tried, and the
+  response reports `fallback_reason: "live_predictions_stale"` with a warning
+  naming both clocks.
+- `arrival_time` and `eta_minutes` are now derived from one instant anchored at
+  fetch time (`fetched_at + ETA`). They stay coherent on every call and the
+  countdown decreases while a cache entry is served instead of freezing.
+- `provenance.observed_at` is the derived upstream observation time for live
+  arrivals, and null when it cannot be derived or the feed is stale. It is never
+  set to the fetch time.
+- `provenance.data_age_seconds` measures the age of the upstream observation,
+  not the age of the fetch, and is null when unknown.
+- If the live feed is stale and the schedule fallback also fails, stale
+  predictions are returned as reference only: `is_stale: true`, `live: false` on
+  every arrival, and a `data_stale` error.
+- `get_vehicles` now sets `provenance.is_stale: true` when any returned vehicle
+  position is stale, matching the existing `data_stale` error and per-vehicle
+  flags.
+- Schedule tables with GTFS times at or after 24:00 (after-midnight service) are
+  now parsed and mapped to the next service day instead of being dropped.
+- The live parser also accepts after-midnight hour labels up to `29:xx`.
+
+### Added
+
+- A runtime consistency guard: if `arrival_time` and `eta_minutes` ever disagree
+  by more than 1.5 minutes, a warning is added to `provenance.warnings` instead
+  of silently returning contradictory data.
+- Regression tests with a controlled clock for frozen feeds, DST offsets
+  (summer, winter, and the spring-forward boundary), GTFS times after 24:00,
+  midnight crossings, ETA decreasing between calls, the arrival-time/ETA
+  invariant, and `data_age_seconds` tracking the observation rather than the
+  fetch.
+
 ## [0.3.5] - 2026-10-23
 
 ### Documentation
