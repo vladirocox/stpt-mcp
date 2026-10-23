@@ -373,6 +373,61 @@ async def test_an_old_suspicion_clears_once_the_feed_is_seen_running(
     assert result.provenance.freshness is Freshness.FRESH
 
 
+async def test_a_swapped_snapshot_after_a_freeze_must_advance_first(
+    service_factory: ServiceFactory, fake: FakeSTPT, clock: MutableClock
+) -> None:
+    first = REFERENCE_NOW + timedelta(minutes=10)
+    stop_135: dict[str, Any] = {"payload": running_feed(clock, [first])(None)}
+    fake.set_json_callback(LIVE_URL, lambda _request: stop_135["payload"])
+    service, _ = await service_factory(fake=fake)
+    for _ in range(2):  # running
+        stop_135["payload"] = running_feed(clock, [first])(None)
+        assert (await service.get_arrivals("135")).provenance.source is DataSource.LIVE  # type: ignore[union-attr]
+        clock.advance(60)
+    for _ in range(4):  # frozen at the last reading, then stale
+        frozen = await service.get_arrivals("135")
+        clock.advance(60)
+    assert frozen.provenance is not None
+    assert frozen.provenance.fallback_reason == "live_predictions_stale"
+
+    # Another frozen snapshot whose clock happens to match now.
+    stop_135["payload"] = line_14(
+        [f"{(clock.wall() + timedelta(minutes=3)).astimezone(BUCHAREST):%H:%M}|3"]
+    )
+    swapped = await service.get_arrivals("135")
+    assert swapped.provenance is not None
+    assert swapped.provenance.source is DataSource.SCHEDULE
+    assert swapped.provenance.fallback_reason == "live_predictions_unverified"
+
+    clock.advance(60)  # it really runs: the next reading advanced one minute
+    stop_135["payload"] = line_14(
+        [f"{(clock.wall() + timedelta(minutes=3)).astimezone(BUCHAREST):%H:%M}|3"]
+    )
+    recovered = await service.get_arrivals("135")
+    assert recovered.provenance is not None
+    assert recovered.provenance.source is DataSource.LIVE
+
+
+async def test_a_frozen_stop_polled_all_day_is_never_live(
+    service_factory: ServiceFactory, fake: FakeSTPT, clock: MutableClock
+) -> None:
+    # Stop 135 is frozen at an implied 12:38; stop 85 runs. Polled every 20
+    # minutes for 26 hours, the frozen clock matches real time once a day.
+    feeds: dict[str, Any] = {"135": line_14(["12:48|10"])}
+    fake.set_json_callback(LIVE_URL, lambda request: feeds[request.url.params.get("stopid", "")])
+    service, _ = await service_factory(fake=fake)
+    # Fetch on :00/:20/:40, so one fetch lands just after the frozen time of day
+    # flips to the next date (00:40) and another twelve hours later, at 12:40.
+    clock.advance(300)
+    for _ in range(26 * 3):
+        feeds["85"] = running_feed(clock, [clock.wall() + timedelta(minutes=7)])(None)
+        await service.get_arrivals("85")
+        result = await service.get_arrivals("135", line="14")
+        assert result.provenance is not None
+        assert result.provenance.source is DataSource.SCHEDULE, clock.wall()
+        clock.advance(1200)
+
+
 async def test_predictions_without_a_clock_are_never_live(
     service_factory: ServiceFactory, fake: FakeSTPT
 ) -> None:

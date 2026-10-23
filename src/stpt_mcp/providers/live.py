@@ -114,11 +114,11 @@ class LiveArrivalsProvider:
         anchor, since = reading, fetched_at
         advancing = jumped = suspect = False
         if previous is not None and (
-            (fetched_at - previous.since).total_seconds() >= _COMPARABLE_SECONDS - tolerance
+            (fetched_at - previous.assessed_at).total_seconds() >= _COMPARABLE_SECONDS - tolerance
         ):
-            # Display times resolve to the reading nearest the fetch, so readings
-            # half a day apart cannot be compared. A stop that was not fresh then
-            # stays suspect unless other stops have shown the feed running since.
+            # After half a day without a fetch, a time of day cannot tell a running
+            # clock from a frozen one. A stop that was not fresh then stays suspect
+            # unless other stops have shown the feed running since.
             suspect = (
                 previous.suspect or previous.freshness is not Freshness.FRESH
             ) and not self._feed_recovered()
@@ -136,17 +136,24 @@ class LiveArrivalsProvider:
                 wall_moved = (
                     self._wall(reading) - self._wall(previous.implied_now)
                 ).total_seconds()
+                wall_moved = (wall_moved + 43_200) % 86_400 - 43_200
                 # Readings have minute resolution, and the median may step back a
-                # minute as vehicles change. Comparing displayed wall times keeps a
-                # frozen reading frozen when a DST fold resolves it an hour apart.
+                # minute as vehicles change. Comparing displayed times of day keeps
+                # a frozen reading frozen when it resolves to another day or, across
+                # a DST fold, to an instant an hour apart.
                 if -60 <= wall_moved < 60:
                     anchor, since = previous.implied_now, previous.since
                     advancing = previous.advancing
-                elif moved > 0 and abs(moved - elapsed) <= tolerance:
+                elif (
+                    moved > 0
+                    and abs(moved - elapsed) <= tolerance
+                    and previous.freshness is not Freshness.STALE
+                ):
                     advancing = True
                 else:
-                    # Backwards, or by a different amount than real time passed
-                    # (for example a frozen clock read one day later): no proof.
+                    # Backwards, by a different amount than real time passed, or away
+                    # from a reading already judged stale (a swapped snapshot can
+                    # match the clock by chance): no proof until it advances again.
                     jumped = True
         suspect = (suspect or jumped) and not advancing
         unchanged = (fetched_at - since).total_seconds()

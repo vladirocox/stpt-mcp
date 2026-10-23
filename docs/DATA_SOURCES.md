@@ -65,10 +65,12 @@ frozen snapshots carry a different stale clock per stop, so at almost any moment
 some stop matches. The provider therefore remembers each stop's implied clock
 (bounded by `STPT_MCP_MAX_CACHE_ENTRIES`). If it has not advanced for longer than
 the skew tolerance while real time has, the predictions are stale ("look
-frozen"). If it moved backwards by more than a minute or by a different amount
-than real time passed, the stop becomes suspect, and a stop whose last
-observation was not fresh and is too old to compare (12 hours or more) is
-suspect too, unless another stop has since been seen running. A suspect stop
+frozen"). Readings are compared as times of day, so a frozen reading stays the
+same when it resolves to another date. If it moved backwards by more than a
+minute, by a different amount than real time passed, or away from a reading
+already judged stale (a swapped snapshot can match the clock by chance), the
+stop becomes suspect. A stop fetched again after 12 hours or more, whose last
+observation was not fresh, is suspect too, unless another stop has since been seen running. A suspect stop
 stays unverified until its clock is seen to advance with real time, and turns
 stale if it keeps standing still. A response without display times does not
 reset this tracking. Readings are compared as displayed wall times, so a frozen

@@ -459,9 +459,15 @@ intentionally not recorded in this public log.
   fold looked like progress; a response without display times erased a stop's
   suspicion; a stop once not fresh and queried only every 12 hours stayed
   unverified forever on a healthy feed.
-- Local verification before the release PR: Ruff format/lint passed; strict
-  MyPy passed; pytest reported **244 passed, 1 skipped** (245 collected, up from
-  226 in 0.3.6); coverage **91.7%**. Reverting each fix individually made its
+- A fourth round over the committed branch confirmed two more, fixed with tests:
+  a stop that froze after running accepted a swapped snapshot matching the
+  clock as progress; a frozen stop polled all day lost its history at a 12-hour
+  comparability reset and was labelled fresh once a day. Comparability now uses
+  the gap between fetches and readings compare as times of day.
+- Local verification: Ruff format/lint passed; strict MyPy passed; pytest
+  reported **246 passed, 1 skipped** (247 collected, up from 226 in 0.3.6);
+  coverage **91.7%**; Bandit reported no issues; pip-audit found no known
+  vulnerabilities; `uv build` and `twine check --strict` passed. Reverting each fix individually made its
   targeted tests fail (frozen-clock detector, clock jump, DST resolution,
   unverified-as-live, withholding, future vehicle timestamps, stale-cache live
   flag, past live and schedule departures, timetable grace day).
