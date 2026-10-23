@@ -107,6 +107,7 @@ async def test_vehicles_include_staleness_per_vehicle(
     assert [vehicle.vehicle_id for vehicle in result.vehicles] == ["3512", "GLU", "3515", "GLR"]
     assert [vehicle.is_stale for vehicle in result.vehicles] == [True, False, False, True]
     assert result.provenance is not None
+    assert result.provenance.is_stale is True
     assert result.provenance.observed_at == result.vehicles[1].observed_at
     assert result.provenance.data_age_seconds == 5
     assert any("older than 120s" in warning for warning in result.provenance.warnings)

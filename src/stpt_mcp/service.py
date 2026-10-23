@@ -54,8 +54,6 @@ class ArrivalRecord:
     destination: str
     direction: Direction | None
     mode: VehicleMode
-    eta_minutes: int | None
-    arrival_time: str | None
     live: bool
     vehicle_id: str | None = None
     shape_id: str | None = None
@@ -67,6 +65,7 @@ class ArrivalsSnapshot:
     records: tuple[ArrivalRecord, ...]
     source: DataSource
     fetched_at: datetime
+    observed_at: datetime | None = None
     fallback_reason: str | None = None
     warnings: tuple[str, ...] = ()
     partial: bool = False
@@ -356,12 +355,20 @@ class TransitService:
             status = Status.ERROR
         if not arrivals and not warnings:
             warnings.append("No upcoming departures were found for this stop and filter.")
+        warnings.extend(_arrival_consistency_warnings(arrivals, now=now, zone=self._zone))
+        observed_at = snapshot.observed_at
+        if snapshot.source is DataSource.LIVE:
+            data_age = (
+                max(0.0, (now - observed_at).total_seconds()) if observed_at is not None else None
+            )
+        else:
+            data_age = max(0.0, (now - snapshot.fetched_at).total_seconds())
         provenance = Provenance(
             source=snapshot.source,
             fetched_at=snapshot.fetched_at,
-            observed_at=snapshot.fetched_at if snapshot.source is DataSource.LIVE else None,
+            observed_at=observed_at,
             is_stale=is_stale,
-            data_age_seconds=max(0.0, (now - snapshot.fetched_at).total_seconds()),
+            data_age_seconds=data_age,
             fallback_reason=snapshot.fallback_reason,
             warnings=_unique(warnings),
         )
@@ -388,7 +395,8 @@ class TransitService:
         except StptError as exc:
             live_error = exc
 
-        if live_result is not None and live_result.value:
+        live_is_stale = live_result is not None and bool(live_result.value) and live_result.stale
+        if live_result is not None and live_result.value and not live_result.stale:
             live_partial_error = None
             partial = not live_result.complete
             if partial:
@@ -402,13 +410,18 @@ class TransitService:
                 records=tuple(_record_from_live(arrival) for arrival in live_result.value),
                 source=DataSource.LIVE,
                 fetched_at=live_result.fetched_at,
+                observed_at=live_result.observed_at,
                 warnings=live_result.warnings,
                 partial=partial,
                 error=live_partial_error,
             )
 
         warnings: list[str] = []
-        if live_result is not None:
+        if live_result is not None and live_result.value and live_result.stale:
+            fallback_reason = "live_predictions_stale"
+            warnings.append("Live predictions are stale; trying the schedule fallback.")
+            warnings.extend(live_result.warnings)
+        elif live_result is not None:
             fallback_reason = "live_returned_no_departures"
             warnings.append("Live endpoint returned no predictions; trying the schedule.")
             warnings.extend(live_result.warnings)
@@ -422,6 +435,35 @@ class TransitService:
         try:
             schedule = await self._get_schedule_cached(stop, service_date)
         except StptError as schedule_error:
+            if live_is_stale and live_result is not None:
+                # The feed answered but its own clock is inconsistent, so these
+                # predictions are not live. Showing them as clearly stale is
+                # more useful than failing the whole request, but they must
+                # never be labelled live or carry an invented observation time.
+                return ArrivalsSnapshot(
+                    records=tuple(_record_from_live(arrival) for arrival in live_result.value),
+                    source=DataSource.LIVE,
+                    fetched_at=live_result.fetched_at,
+                    observed_at=None,
+                    fallback_reason=fallback_reason,
+                    warnings=tuple(
+                        _unique(
+                            (
+                                *warnings,
+                                "The schedule fallback is unavailable; stale predictions are "
+                                "shown for reference only.",
+                            )
+                        )
+                    ),
+                    partial=True,
+                    stale=True,
+                    error=StptError(
+                        ErrorCode.DATA_STALE,
+                        "Live predictions are stale and the schedule fallback is unavailable.",
+                        retryable=True,
+                        upstream="live+sched",
+                    ),
+                )
             if live_error is not None:
                 raise StptError(
                     ErrorCode.UPSTREAM_UNAVAILABLE,
@@ -524,25 +566,20 @@ class TransitService:
     ) -> tuple[list[Arrival], str | None]:
         arrivals: list[Arrival] = []
         wanted = line.casefold() if line else None
-        elapsed_seconds = max(0.0, (now - snapshot.fetched_at).total_seconds())
-        elapsed_minutes = int(elapsed_seconds // 60)
         for record in snapshot.records:
             if wanted is not None and record.line.casefold() != wanted:
                 continue
-            if record.live:
-                eta = max(0, (record.eta_minutes or 0) - elapsed_minutes)
-                arrival_time = record.arrival_time
-            else:
-                if record.departure_at is None:
-                    continue
-                departure = record.departure_at
-                while departure <= now:
-                    departure += timedelta(days=1)
-                delta_minutes = (departure - now).total_seconds() / 60
+            if record.departure_at is None:
+                continue
+            anchor = record.departure_at
+            if not record.live:
+                while anchor <= now:
+                    anchor += timedelta(days=1)
+                delta_minutes = (anchor - now).total_seconds() / 60
                 if delta_minutes > self.settings.schedule_lookahead_minutes:
                     continue
-                eta = max(0, math.ceil(delta_minutes))
-                arrival_time = departure.astimezone(self._zone).strftime("%H:%M")
+            remaining_minutes = (anchor - now).total_seconds() / 60
+            eta = max(0, math.ceil(remaining_minutes - 1e-9))
             arrivals.append(
                 Arrival(
                     line=record.line,
@@ -550,8 +587,8 @@ class TransitService:
                     direction=record.direction,
                     mode=record.mode,
                     eta_minutes=eta,
-                    arrival_time=arrival_time,
-                    live=record.live,
+                    arrival_time=anchor.astimezone(self._zone).strftime("%H:%M"),
+                    live=record.live and not snapshot.stale,
                     vehicle_id=record.vehicle_id,
                     shape_id=record.shape_id,
                 )
@@ -782,7 +819,7 @@ class TransitService:
             default=None,
         )
         data_age = max(0.0, (now - observed_at).total_seconds()) if observed_at else None
-        envelope_stale = cache_stale or (bool(vehicles) and all(v.is_stale for v in vehicles))
+        envelope_stale = cache_stale or stale_count > 0
         provenance = Provenance(
             source=DataSource.LIVE,
             fetched_at=snapshot.fetched_at,
@@ -841,16 +878,57 @@ class TransitService:
         )
 
 
+def _arrival_consistency_warnings(
+    arrivals: list[Arrival],
+    *,
+    now: datetime,
+    zone: ZoneInfo,
+) -> list[str]:
+    """Guard the public contract: ``arrival_time`` must agree with ``eta_minutes``.
+
+    Both fields are derived from one anchored instant, so a mismatch means a
+    bug. Reporting it as a provenance warning is better than silently returning
+    a time-of-day that contradicts the countdown.
+    """
+
+    warnings: list[str] = []
+    now_local = now.astimezone(zone)
+    for arrival in arrivals:
+        if arrival.arrival_time is None:
+            continue
+        try:
+            hour_text, minute_text = arrival.arrival_time.split(":", 1)
+            hour = int(hour_text)
+            minute = int(minute_text)
+        except ValueError:
+            warnings.append(
+                f"{arrival.line} returned an unparseable arrival_time {arrival.arrival_time!r}."
+            )
+            continue
+        candidate = now_local.replace(hour=hour, minute=minute, second=0, microsecond=0)
+        nearest = min(
+            (candidate - timedelta(days=1), candidate, candidate + timedelta(days=1)),
+            key=lambda value: abs((value - now).total_seconds()),
+        )
+        implied_minutes = (nearest - now).total_seconds() / 60
+        if abs(implied_minutes - arrival.eta_minutes) > 1.5:
+            warnings.append(
+                f"{arrival.line} shows {arrival.arrival_time} "
+                f"({implied_minutes:+.1f} min away) but eta_minutes is "
+                f"{arrival.eta_minutes}; the arrival time and countdown disagree."
+            )
+    return warnings[:5]
+
+
 def _record_from_live(arrival: LiveArrival) -> ArrivalRecord:
     return ArrivalRecord(
         line=arrival.line,
         destination=arrival.destination,
         direction=None,
         mode=arrival.mode,
-        eta_minutes=arrival.eta_minutes,
-        arrival_time=arrival.arrival_time,
         live=True,
         vehicle_id=arrival.vehicle_id,
+        departure_at=arrival.arrival_at,
     )
 
 
@@ -860,8 +938,6 @@ def _record_from_schedule(departure: ScheduleDeparture) -> ArrivalRecord:
         destination=departure.destination,
         direction=departure.direction,
         mode=departure.mode,
-        eta_minutes=None,
-        arrival_time=None,
         live=False,
         shape_id=departure.shape_id,
         departure_at=departure.departure_at,

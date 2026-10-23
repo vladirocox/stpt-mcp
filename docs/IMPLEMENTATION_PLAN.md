@@ -1,11 +1,12 @@
 # Implementation plan
 
-Status: **v0.3.4 published on PyPI; v0.3.5 documentation cleanup prepared, not
-yet released**
+Status: **v0.3.5 published on PyPI; v0.3.6 live-arrival freshness fix
+prepared, not yet released**
 
 This plan is the delivery contract for `v0.1.0`, `v0.2.0`, `v0.3.0`,
 `v0.3.1`, `v0.3.2`, the `v0.3.3` documentation release, the `v0.3.4` PyPI
-publication release, and the `v0.3.5` documentation cleanup.
+publication release, the `v0.3.5` documentation cleanup, and the `v0.3.6`
+live-arrival freshness fix.
 Checkboxes are updated only
 after the corresponding check has actually run. A checked item with a command
 means the command passed; environmental limitations are recorded separately.
@@ -211,7 +212,35 @@ limitation · **N/A** not applicable.
   are not recorded again.
 - [x] Confirm the author is named as Vlad Ohai in `LICENSE`, the package
   metadata, and the README.
-- [ ] Publish the `v0.3.5` GitHub release and confirm the `Publish` workflow
+- [x] Publish the `v0.3.5` GitHub release and confirm the `Publish` workflow
+  uploaded to PyPI.
+
+## 16. Live arrival freshness (v0.3.6)
+
+- [x] Derive an upstream observation clock from each live prediction's display
+  time and remaining minutes; use the median across the response.
+- [x] Reject a feed whose implied clock diverges from the real clock by more than
+  `STPT_MCP_LIVE_CLOCK_SKEW_TOLERANCE_SECONDS`, fall back to the schedule, and
+  report `fallback_reason: "live_predictions_stale"` with a warning naming both
+  clocks.
+- [x] Keep `observed_at` null when the feed has no clock reference or is stale;
+  never copy the fetch time into it.
+- [x] Anchor each live arrival at `fetched_at + ETA` and derive both
+  `arrival_time` and `eta_minutes` from that anchor on every call.
+- [x] Measure `data_age_seconds` from the upstream observation, not the fetch
+  time, and return null when unknown.
+- [x] Return stale live predictions as reference only (`is_stale: true`,
+  `live: false`, `data_stale` error) when the schedule fallback also fails.
+- [x] Add a runtime guard that warns when `arrival_time` and `eta_minutes`
+  disagree by more than 1.5 minutes.
+- [x] Align `get_vehicles` `provenance.is_stale` with its per-vehicle stale flags
+  and `data_stale` error.
+- [x] Parse GTFS schedule times at or after 24:00 and map them to the next
+  service day; accept live hour labels up to `29:xx`.
+- [x] Add deterministic regression tests for frozen feeds, DST, after-midnight
+  times, midnight crossing, ETA decrease, the arrival-time/ETA invariant, and
+  observation-age accounting.
+- [ ] Publish the `v0.3.6` GitHub release and confirm the `Publish` workflow
   uploaded to PyPI.
 
 ## Explicit non-goals for v0.1.0

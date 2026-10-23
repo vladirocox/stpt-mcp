@@ -52,14 +52,22 @@ class Provenance(Model):
     observed_at: AwareDatetime | None = Field(
         default=None,
         description=(
-            "Upstream observation timestamp. Live arrivals expose no timestamp, so this is "
-            "the fetch time; schedules describe future service and leave it null; vehicles use "
-            "their upstream timestamp."
+            "Upstream observation timestamp in UTC. Live arrivals derive it from the feed's "
+            "own display times and remaining minutes; it is null when the feed carries no "
+            "clock reference or is rejected as stale. Schedules describe future service and "
+            "leave it null; vehicles use their upstream timestamp."
         ),
     )
-    is_stale: bool = Field(description="True when the stale cache policy supplied the data.")
+    is_stale: bool = Field(
+        description="True when stale data is being returned, whether from cache or upstream."
+    )
     data_age_seconds: float | None = Field(
-        default=None, ge=0, description="Age of the source/cache entry when returned."
+        default=None,
+        ge=0,
+        description=(
+            "Age of the upstream observation when returned, in seconds. Null when the age "
+            "cannot be measured."
+        ),
     )
     fallback_reason: str | None = Field(
         default=None,

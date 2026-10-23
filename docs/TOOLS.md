@@ -92,10 +92,17 @@ Return upcoming arrivals at a stop, preferring live data.
 Selection order:
 
 1. fresh cached arrivals for the stop;
-2. live predictions;
+2. live predictions whose embedded clock agrees with the real clock;
 3. date-specific schedule fallback;
 4. last-known-good data within the stale window;
 5. structured error.
+
+A live payload that is frozen or whose implied observation time is more than
+`STPT_MCP_LIVE_CLOCK_SKEW_TOLERANCE_SECONDS` away from the fetch time is not
+live. The server reports `fallback_reason: "live_predictions_stale"` and tries
+the schedule. If the schedule is also unavailable, the stale predictions are
+returned for reference with `is_stale: true`, `live: false` on every arrival,
+and a `data_stale` error; they are never presented as live.
 
 The arrivals cache is keyed by stop, so a line filter does not multiply upstream
 requests. Filtering and limiting happen after retrieval.
@@ -103,6 +110,12 @@ requests. Filtering and limiting happen after retrieval.
 An arrival contains line, destination, direction, mode, ETA minutes, local
 display time, `live`, and optional vehicle/shape IDs. Schedule arrivals have
 `live: false`.
+
+`arrival_time` and `eta_minutes` are derived from one anchored instant on every
+call, so the countdown keeps decreasing while a cache entry is served and the
+two fields always agree within one minute. `data_age_seconds` measures the age
+of the upstream observation, not the age of the cache entry; it is null when no
+observation time can be derived.
 
 `lookahead_minutes` reports the schedule lookahead used when fallback runs.
 
@@ -167,7 +180,35 @@ display time, `live`, and optional vehicle/shape IDs. Schedule arrivals have
 ```
 
 `arrivals` is abbreviated. Fallback reasons are
-`live_returned_no_departures` and `live_unavailable`.
+`live_returned_no_departures`, `live_unavailable`, and `live_predictions_stale`.
+
+### Example: frozen live feed, schedule fallback
+
+```json
+{
+  "status": "ok",
+  "error": null,
+  "provenance": {
+    "source": "schedule",
+    "fetched_at": "2026-10-23T09:26:04Z",
+    "observed_at": null,
+    "is_stale": false,
+    "data_age_seconds": 1.2,
+    "fallback_reason": "live_predictions_stale",
+    "warnings": [
+      "Live predictions are stale; trying the schedule fallback.",
+      "Live predictions look stale: the feed implies 16:00 local while the current time is 12:26 (+214 min)."
+    ]
+  },
+  "count": 4,
+  "arrivals": []
+}
+```
+
+If the schedule is also unavailable, the same call returns `status: "partial"`,
+`source: "live"`, `is_stale: true`, `observed_at: null`,
+`data_age_seconds: null`, `live: false` on every arrival, and an error with code
+`data_stale`. The predictions are explicitly reference-only.
 
 ## `get_alerts`
 

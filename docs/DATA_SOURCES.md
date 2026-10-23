@@ -31,9 +31,27 @@ and records warnings for records it cannot use. It preserves the upstream ETA
 minutes and display time, line, destination, direction, mode, vehicle ID, and
 shape ID where available.
 
-No upstream observation timestamp is present. `provenance.fetched_at` is the
-time this server retrieved the response, and `provenance.observed_at` mirrors it
-for live arrivals. The server never invents a different timestamp.
+No upstream observation timestamp is present. The parser therefore derives one
+from the feed itself: for each prediction, `display time - remaining minutes` is
+the instant the feed believed it was. The median across the response is
+`provenance.observed_at`. If it diverges from the real fetch time by more than
+`STPT_MCP_LIVE_CLOCK_SKEW_TOLERANCE_SECONDS` (default 180 s), the feed is frozen
+or otherwise incoherent: the live predictions are **not** labelled live, the
+server tries the schedule fallback, and the response carries
+`fallback_reason: "live_predictions_stale"` plus a warning naming both clocks.
+If the feed has no clock reference at all, `observed_at` is null and a warning
+says freshness could not be verified. `observed_at` is never set to the fetch
+time.
+
+Arrival instants are anchored locally at fetch time (`fetched_at + ETA`), and
+both `arrival_time` and `eta_minutes` are derived from that anchor on every
+call. The countdown therefore decreases with the wall clock even while a cache
+entry is served, and the two fields cannot disagree.
+
+If the live feed is stale and the schedule fallback also fails, the stale
+predictions are returned for reference only: `source: "live"`, `is_stale: true`,
+`live: false` on every arrival, `observed_at` and `data_age_seconds` null, and a
+`data_stale` error. Stale predictions are never presented as live.
 
 If the array is non-empty but some records are malformed, the usable records are
 returned as `status: "partial"` with an `upstream_invalid_response` error.
@@ -70,8 +88,8 @@ The response contains vehicle/trip records with coordinates, line, headsign,
 bearing, speed, accessibility, and an epoch-millisecond observation timestamp.
 The parser converts timestamps to UTC-aware datetimes and computes age at
 response time. Vehicles older than `STPT_MCP_VEHICLE_STALE_AFTER_SECONDS`
-(default 120 s) are flagged individually. If every returned vehicle is stale,
-the envelope is `partial` with `data_stale`.
+(default 120 s) are flagged individually. If any returned vehicle is stale,
+`provenance.is_stale` is true and the envelope is `partial` with `data_stale`.
 
 Vehicle positions are a snapshot, not a route history.
 
@@ -86,7 +104,8 @@ SMTT route pages embed timetable data in HTML attributes. The server:
    `custom_value=DD.MM.YYYY`;
 4. selects `[data-code]` entries matching the exact stop ID;
 5. accepts only time tokens whose shape suffix matches one of the stop's target
-   shapes;
+   shapes, including GTFS after-midnight hours (`24:xx`–`29:xx`), which are
+   mapped to the next service day;
 6. labels direction and destination from the shape sequence;
 7. derives mode from GTFS route metadata;
 8. computes departure datetimes in `Europe/Bucharest` and filters to the

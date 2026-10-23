@@ -40,6 +40,7 @@ def test_from_env_parses_values() -> None:
             "STPT_MCP_REQUEST_TIMEOUT_SECONDS": "2.5",
             "STPT_MCP_ARRIVAL_TTL_SECONDS": "5",
             "STPT_MCP_ARRIVAL_STALE_TTL_SECONDS": "50",
+            "STPT_MCP_LIVE_CLOCK_SKEW_TOLERANCE_SECONDS": "240",
             "STPT_MCP_AUTH_TOKEN": "a" * 16,
             "STPT_MCP_PUBLIC_URL": "https://mcp.example.com",
             "STPT_MCP_OAUTH_PASSWORD": "oauth-password-123",
@@ -56,6 +57,7 @@ def test_from_env_parses_values() -> None:
     assert settings.log_level == "DEBUG"
     assert settings.max_retries == 4
     assert settings.request_timeout_seconds == 2.5
+    assert settings.live_clock_skew_tolerance_seconds == 240
     assert settings.allowed_hosts == ("mcp.example.com", "localhost:*")
     assert settings.allowed_origins == ("https://app.example.com",)
     assert settings.auth_token == "a" * 16
