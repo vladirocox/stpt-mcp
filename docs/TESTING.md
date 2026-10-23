@@ -32,8 +32,15 @@
 - `make_service` / `make_test_settings`: service factory with injected clocks.
 
 The fixed clock is `2026-10-21T10:30:00Z` (13:30 in `Europe/Bucharest`). Fixtures
-under `tests/fixtures/` contain captured live arrivals for stops 85 and 60,
-alerts, vehicles, and five schedule pages.
+under `tests/fixtures/` contain captured live arrivals for stops 85 and 60, a
+frozen live payload captured from stop 135 on 2026-10-23, alerts, and vehicles.
+Schedule tests use the bundled timetable; their expected departures were read
+directly from the official GTFS `stop_times.txt`, independently of the code.
+`tests/integration/test_freshness.py` runs at the reference instant
+2026-10-23 12:55 local and covers a running feed (ETA counts down, `arrival_time
+- now == eta_minutes` within a minute, across more than the skew tolerance), a
+frozen feed whose clock later equals real time, first-sight suspicion, clockless
+predictions, and withholding when no fallback exists.
 
 The alert fixture intentionally includes an alert with no parseable active period.
 It must be treated as active with a warning; dropping it silently would be a
@@ -46,7 +53,7 @@ regression.
 1. **50 concurrent calls, same stop, live available** — exactly one upstream live
    request; no schedule refresh; 49 coalesced cache waits.
 2. **50 concurrent calls, same stop, live empty** — exactly one schedule refresh,
-   one request per required schedule page, 49 coalesced waits.
+   no request beyond the single live request, 49 coalesced waits.
 3. **50 concurrent calls split across two stops** — one live request per stop and
    no cross-contamination of lines, stop IDs, or results.
 4. **Immediate TTL hit** — zero upstream requests after warm-up.
@@ -87,8 +94,8 @@ upstream correctness.
 ## Coverage
 
 Coverage is branch-aware, measures `stpt_mcp`, and fails below **85%**. At the
-v0.3.6 verification run the suite had **225 tests passing, 1 deselected** and
-**91.15%** total coverage. The exact numbers are recorded in the execution log.
+v0.3.7 verification run the suite had **244 tests passing, 1 deselected** and
+**91.7%** total coverage. The exact numbers are recorded in the execution log.
 
 Coverage is not a substitute for the concurrency and real-client tests, which
 assert behavior rather than line execution.

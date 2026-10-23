@@ -2,11 +2,15 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from dataclasses import replace
+from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
-from stpt_mcp.models import DataSource, Status
+import pytest
+
+from stpt_mcp.models import DataSource, Freshness, Status
 from stpt_mcp.network import NetworkIndex
+from stpt_mcp.providers.schedule import Timetable
 from tests.support import FakeSTPT, MutableClock, ServiceFactory, make_test_settings
 
 BUCHAREST = ZoneInfo("Europe/Bucharest")
@@ -20,6 +24,13 @@ FROZEN_LIVE = [
         "times": ["16:10|10", "16:26|26"],
     }
 ]
+
+
+@pytest.fixture
+def expired_timetable(timetable: Timetable) -> Timetable:
+    """A timetable that ended two days before the test clock, so the fallback fails."""
+
+    return replace(timetable, end=date(2026, 10, 19))
 
 
 def minutes_until(arrival_time: str, now: datetime) -> float:
@@ -128,22 +139,24 @@ async def test_frozen_live_feed_falls_back_to_schedule(
     assert result.provenance.source is DataSource.SCHEDULE
     assert result.provenance.fallback_reason == "live_predictions_stale"
     assert result.provenance.is_stale is False
+    assert result.provenance.freshness is Freshness.UNVERIFIED
     assert result.provenance.observed_at is None
     assert all(arrival.live is False for arrival in result.arrivals)
+    # The bundled GTFS timetable, not the frozen 16:10 prediction.
+    assert (result.arrivals[0].line, result.arrivals[0].arrival_time) == ("2", "13:31")
     assert any("look stale" in warning for warning in result.provenance.warnings)
     assert any("schedule fallback" in warning.lower() for warning in result.provenance.warnings)
 
 
-async def test_stale_live_is_reference_only_when_schedule_fails(
-    service_factory: ServiceFactory, fake: FakeSTPT
+async def test_stale_live_is_withheld_when_schedule_is_unavailable(
+    service_factory: ServiceFactory, fake: FakeSTPT, expired_timetable: Timetable
 ) -> None:
     fake.set_json(LIVE_URL, FROZEN_LIVE)
-    for path in ("2", "4-r", "7"):
-        fake.fail_next(f"https://smtt.test/linie-transport-public-{path}/", times=3)
-    service, _ = await service_factory(fake=fake)
+    service, _ = await service_factory(fake=fake, timetable_override=expired_timetable)
     result = await service.get_arrivals("85")
     assert result.status is Status.PARTIAL
-    assert result.count == 2
+    assert result.count == 0
+    assert result.arrivals == []
     assert result.provenance is not None
     assert result.provenance.source is DataSource.LIVE
     assert result.provenance.is_stale is True
@@ -152,8 +165,10 @@ async def test_stale_live_is_reference_only_when_schedule_fails(
     assert result.provenance.fallback_reason == "live_predictions_stale"
     assert result.error is not None
     assert result.error.code.value == "data_stale"
-    assert all(arrival.live is False for arrival in result.arrivals)
-    assert any("reference only" in warning for warning in result.provenance.warnings)
+    assert result.provenance.freshness is Freshness.STALE
+    assert any("withheld" in warning for warning in result.provenance.warnings)
+    assert any("look stale" in warning for warning in result.provenance.warnings)
+    assert any("2026-10-19" in warning for warning in result.provenance.warnings)
 
 
 async def test_data_age_tracks_upstream_observation_time(
@@ -183,17 +198,22 @@ async def test_data_age_tracks_upstream_observation_time(
 
 
 async def test_stale_last_known_good_after_refresh_failure(
-    service_factory: ServiceFactory, fake: FakeSTPT, clock: MutableClock
+    service_factory: ServiceFactory,
+    fake: FakeSTPT,
+    clock: MutableClock,
+    expired_timetable: Timetable,
 ) -> None:
-    service, _ = await service_factory(fake=fake)
+    service, _ = await service_factory(fake=fake, timetable_override=expired_timetable)
     await service.get_arrivals("85")
     clock.advance(61)
     fake.fail_next("https://live.test/proxy-smtt-cache.php", times=3)
-    for path in ("2", "4-r", "7"):
-        fake.fail_next(f"https://smtt.test/linie-transport-public-{path}/", times=3)
     result = await service.get_arrivals("85")
     assert result.status is Status.PARTIAL
     assert result.count == 4
+    # Cached predictions keep counting down from their fetch time, but they
+    # are no longer verified, so none of them may be labelled live.
+    assert [arrival.eta_minutes for arrival in result.arrivals] == [2, 4, 7, 9]
+    assert all(arrival.live is False for arrival in result.arrivals)
     assert result.provenance is not None
     assert result.provenance.source is DataSource.LIVE
     assert result.provenance.is_stale is True
@@ -201,21 +221,44 @@ async def test_stale_last_known_good_after_refresh_failure(
     assert result.provenance.data_age_seconds >= 61
     assert result.error is not None
     assert result.error.retryable is True
+    assert result.provenance.freshness is Freshness.STALE
     assert any("last-known-good" in warning for warning in result.provenance.warnings)
 
 
-async def test_live_and_schedule_failure_returns_structured_error(
-    service_factory: ServiceFactory, fake: FakeSTPT, clock: MutableClock
+async def test_last_known_good_drops_predictions_already_past(
+    service_factory: ServiceFactory,
+    fake: FakeSTPT,
+    clock: MutableClock,
+    expired_timetable: Timetable,
 ) -> None:
-    service, _ = await service_factory(fake=fake)
+    service, _ = await service_factory(fake=fake, timetable_override=expired_timetable)
+    await service.get_arrivals("85")
+    clock.advance(300)
+    fake.fail_next("https://live.test/proxy-smtt-cache.php", times=3)
+    result = await service.get_arrivals("85")
+    assert result.provenance is not None
+    assert result.provenance.is_stale is True
+    # The 3-minute prediction left two minutes ago; it must not read "due now".
+    assert [(arrival.line, arrival.eta_minutes) for arrival in result.arrivals] == [
+        ("2", 0),
+        ("4", 3),
+        ("7", 5),
+    ]
+
+
+async def test_live_and_schedule_failure_returns_structured_error(
+    service_factory: ServiceFactory,
+    fake: FakeSTPT,
+    clock: MutableClock,
+    expired_timetable: Timetable,
+) -> None:
+    service, _ = await service_factory(fake=fake, timetable_override=expired_timetable)
     await service.get_arrivals("85")
     clock.advance(901)
     fake.fail_next(
         "https://live.test/proxy-smtt-cache.php",
         times=3,
     )
-    for path in ("2", "4-r", "7"):
-        fake.fail_next(f"https://smtt.test/linie-transport-public-{path}/", times=3)
     result = await service.get_arrivals("85")
     assert result.status is Status.ERROR
     assert result.count == 0
@@ -235,30 +278,25 @@ async def test_schedule_fallback_when_live_is_empty(
     assert result.provenance.fallback_reason == "live_returned_no_departures"
     assert result.provenance.observed_at is None
     assert result.provenance.is_stale is False
-    assert result.count == 9
-    assert [arrival.line for arrival in result.arrivals] == [
-        "1",
-        "2",
-        "1",
-        "2",
-        "8",
-        "2",
-        "1",
-        "8",
-        "8",
+    assert result.provenance.freshness is Freshness.UNVERIFIED
+    # Expected values were read directly from the official GTFS stop_times for
+    # Wednesday 2026-10-21 at 13:30 local, independently of this code.
+    assert result.count == 10
+    assert [
+        (arrival.line, arrival.arrival_time, arrival.eta_minutes) for arrival in result.arrivals
+    ] == [
+        ("8", "13:31", 1),
+        ("1", "13:40", 10),
+        ("2", "13:42", 12),
+        ("8", "13:45", 15),
+        ("1", "13:54", 24),
+        ("2", "13:56", 26),
+        ("8", "13:58", 28),
+        ("1", "14:09", 39),
+        ("2", "14:13", 43),
+        ("8", "14:14", 44),
     ]
     assert all(arrival.live is False for arrival in result.arrivals)
-    assert [arrival.eta_minutes for arrival in result.arrivals] == [
-        6,
-        7,
-        24,
-        25,
-        25,
-        31,
-        39,
-        55,
-        115,
-    ]
 
 
 async def test_schedule_fallback_when_live_fails(
@@ -273,31 +311,31 @@ async def test_schedule_fallback_when_live_fails(
     assert result.provenance.fallback_reason == "live_unavailable"
     assert result.error is not None
     assert result.error.code.value == "upstream_http_error"
-    assert result.count == 9
+    assert result.count == 10
 
 
-async def test_schedule_fallback_partial_when_a_page_fails(
-    service_factory: ServiceFactory, fake: FakeSTPT
+async def test_a_live_outage_is_reported_over_an_ended_timetable(
+    service_factory: ServiceFactory, fake: FakeSTPT, timetable: Timetable
 ) -> None:
-    service, _ = await service_factory(fake=fake)
-    fake.fail_next("https://smtt.test/linie-transport-public-8/", times=3)
+    # The day after the timetable ends only after-midnight trips remain, and the
+    # retryable live failure is the actionable error, not the timetable gap.
+    ended = replace(timetable, end=date(2026, 10, 20))
+    service, _ = await service_factory(fake=fake, timetable_override=ended)
+    fake.fail_next("https://live.test/proxy-smtt-cache.php", times=3)
     result = await service.get_arrivals("59")
     assert result.status is Status.PARTIAL
-    assert result.provenance is not None
-    assert result.provenance.source is DataSource.SCHEDULE
     assert result.error is not None
-    assert result.error.code.value == "schedule_unavailable"
-    assert result.count == 6
-    assert any("Line 8 tur" in warning for warning in result.provenance.warnings)
+    assert result.error.code.value == "upstream_http_error"
+    assert result.error.retryable is True
+    assert result.provenance is not None
+    assert any("ended on 2026-10-20" in warning for warning in result.provenance.warnings)
 
 
 async def test_both_sources_down_is_a_structured_error(
-    service_factory: ServiceFactory, fake: FakeSTPT
+    service_factory: ServiceFactory, fake: FakeSTPT, expired_timetable: Timetable
 ) -> None:
-    service, _ = await service_factory(fake=fake)
+    service, _ = await service_factory(fake=fake, timetable_override=expired_timetable)
     fake.fail_next("https://live.test/proxy-smtt-cache.php", times=3)
-    for path in ("1", "2", "8"):
-        fake.fail_next(f"https://smtt.test/linie-transport-public-{path}/", times=3)
     result = await service.get_arrivals("59")
     assert result.status is Status.ERROR
     assert result.error is not None
@@ -337,7 +375,7 @@ async def test_distinct_stops_are_isolated(service_factory: ServiceFactory, fake
     assert fake.requests == []
 
 
-async def test_schedule_pages_are_shared_but_stop_rows_are_not(
+async def test_schedule_fallback_is_offline_and_per_stop(
     service_factory: ServiceFactory, fake: FakeSTPT
 ) -> None:
     fake.set_json("https://live.test/proxy-smtt-cache.php", [])
@@ -346,12 +384,8 @@ async def test_schedule_pages_are_shared_but_stop_rows_are_not(
     second = await service.get_arrivals("59")
     assert {arrival.line for arrival in first.arrivals} == {"2", "4", "7"}
     assert {arrival.line for arrival in second.arrivals} == {"1", "2", "8"}
-    paths = [request.url.path for request in fake.requests]
-    assert paths.count("/linie-transport-public-2/") == 1
-    assert paths.count("/linie-transport-public-4-r/") == 1
-    assert paths.count("/linie-transport-public-7/") == 1
-    assert paths.count("/linie-transport-public-1/") == 1
-    assert paths.count("/linie-transport-public-8/") == 1
+    # Only the live endpoint is contacted; the timetable is bundled data.
+    assert {request.url.path for request in fake.requests} == {"/proxy-smtt-cache.php"}
 
 
 async def test_invalid_arguments_are_structured(

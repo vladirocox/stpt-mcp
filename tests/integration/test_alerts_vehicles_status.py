@@ -4,9 +4,17 @@ from __future__ import annotations
 
 from datetime import timedelta
 
-from stpt_mcp.models import DataSource, Status
+from stpt_mcp.models import DataSource, Freshness, Status
 from stpt_mcp.network import NetworkIndex
-from tests.support import ALERTS_URL, VEHICLES_URL, FakeSTPT, MutableClock, ServiceFactory
+from tests.support import (
+    ALERTS_URL,
+    LIVE_URL,
+    VEHICLES_URL,
+    FakeSTPT,
+    MutableClock,
+    ServiceFactory,
+    load_json,
+)
 
 
 async def test_alerts_active_filtering(
@@ -110,7 +118,47 @@ async def test_vehicles_include_staleness_per_vehicle(
     assert result.provenance.is_stale is True
     assert result.provenance.observed_at == result.vehicles[1].observed_at
     assert result.provenance.data_age_seconds == 5
+    assert result.provenance.freshness is Freshness.STALE
     assert any("older than 120s" in warning for warning in result.provenance.warnings)
+
+
+async def test_vehicle_timestamps_ahead_of_the_clock_are_not_fresh(
+    service_factory: ServiceFactory, fake: FakeSTPT, clock: MutableClock
+) -> None:
+    payload = load_json("vehicles.json")
+    vehicle = payload["data"]["vehicles"][1]
+    assert vehicle["id"] == "GLU"
+    # One hour ahead: before the fix, the age clamped to 0 and read as fresh.
+    vehicle["timestamp"] = int((clock.wall() + timedelta(hours=1)).timestamp() * 1000)
+    fake.set_json(VEHICLES_URL, payload)
+    service, _ = await service_factory(fake=fake)
+    result = await service.get_vehicles(line="7")
+    assert [vehicle.vehicle_id for vehicle in result.vehicles] == ["GLU"]
+    assert result.vehicles[0].is_stale is True
+    assert result.status is Status.PARTIAL
+    assert result.error is not None
+    assert result.error.code.value == "data_stale"
+    assert result.provenance is not None
+    assert result.provenance.freshness is Freshness.STALE
+    assert any("ahead of the real clock" in warning for warning in result.provenance.warnings)
+
+
+async def test_fresh_vehicles_and_unverifiable_alerts_report_freshness(
+    service_factory: ServiceFactory, fake: FakeSTPT
+) -> None:
+    service, _ = await service_factory(fake=fake)
+    vehicles = await service.get_vehicles(line="7")
+    assert vehicles.status is Status.OK
+    assert vehicles.provenance is not None
+    assert vehicles.provenance.freshness is Freshness.FRESH
+    alerts = await service.get_alerts()
+    assert alerts.provenance is not None
+    assert alerts.provenance.source is DataSource.LIVE
+    # The alerts feed has no timestamp, so it can never be called fresh.
+    assert alerts.provenance.freshness is Freshness.UNVERIFIED
+    stop = service.get_stop("85")
+    assert stop.provenance is not None
+    assert stop.provenance.freshness is Freshness.UNVERIFIED
 
 
 async def test_vehicles_filter_and_limit(service_factory: ServiceFactory, fake: FakeSTPT) -> None:
@@ -178,10 +226,35 @@ async def test_service_status_reports_caches_and_feed(
     assert status.network_feed_version
     assert status.network_service_range["start"]
     names = [cache.name for cache in status.caches]
-    assert names == ["alerts", "arrivals", "schedule_pages", "schedules", "vehicles"]
+    assert names == ["alerts", "arrivals", "schedules", "vehicles"]
     arrivals = next(cache for cache in status.caches if cache.name == "arrivals")
     assert arrivals.entries == 1
     assert arrivals.loads == 1
+    # The fake live feed is coherent with the controlled clock, so the skew is 0.
+    assert status.live_feed is not None
+    assert status.live_feed.stop_id == "85"
+    assert status.live_feed.freshness is Freshness.FRESH
+    assert status.live_feed.skew_seconds == 0.0
+    assert status.live_feed.clock_unchanged_seconds == 0.0
+    assert status.live_feed.recent_stops == {Freshness.FRESH: 1}
+
+
+async def test_service_status_exposes_a_skewed_live_feed(
+    service_factory: ServiceFactory, fake: FakeSTPT, clock: MutableClock
+) -> None:
+    fake.set_json(LIVE_URL, load_json("live_135_frozen.json"))
+    service, _ = await service_factory(fake=fake)
+    before = await service.get_status()
+    assert before.live_feed is None
+    await service.get_arrivals("135")
+    await service.get_arrivals("85")
+    status = await service.get_status()
+    assert status.live_feed is not None
+    assert status.live_feed.stop_id == "85"
+    assert status.live_feed.freshness is Freshness.STALE
+    # The captured feed implies 16:00 local; the clock says 13:30.
+    assert status.live_feed.skew_seconds == 150 * 60
+    assert status.live_feed.recent_stops == {Freshness.STALE: 2}
 
 
 async def test_service_status_before_start(network: NetworkIndex, clock: MutableClock) -> None:

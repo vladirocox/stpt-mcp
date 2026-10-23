@@ -11,7 +11,7 @@ from stpt_mcp.models import DataSource
 from stpt_mcp.network import StopRecord
 from stpt_mcp.providers.base import ProviderResult, ScheduleDeparture
 from stpt_mcp.service import TransitService
-from tests.support import LIVE_URL, SCHEDULE_BASE_URL, FakeSTPT, MutableClock, ServiceFactory
+from tests.support import LIVE_URL, FakeSTPT, MutableClock, ServiceFactory
 
 
 def wrap_schedule_fetch(
@@ -61,15 +61,14 @@ async def test_fifty_concurrent_fallback_calls_share_one_schedule_refresh(
 
     results = await asyncio.gather(*(service.get_arrivals("59") for _ in range(50)))
     assert all(result.status.value == "ok" for result in results)
-    assert all(result.count == 9 for result in results)
+    assert all(result.count == 10 for result in results)
     assert all(
         result.provenance is not None and result.provenance.source is DataSource.SCHEDULE
         for result in results
     )
     assert len(fake.requests_for(LIVE_URL)) == 1
     assert schedule_calls == [("59", "2026-10-21")]
-    for path in ("1", "2", "8"):
-        assert fake.count(f"{SCHEDULE_BASE_URL}/linie-transport-public-{path}/") == 1
+    assert {request.url.path for request in fake.requests} == {"/proxy-smtt-cache.php"}
     stats = service._arrivals_cache.stats()
     assert stats.loads == 1
     assert stats.coalesced == 49
@@ -105,7 +104,7 @@ async def test_immediate_cache_hit_after_concurrency_makes_no_requests(
 
     fake.clear_requests()
     hit = await service.get_arrivals("59")
-    assert hit.count == 9
+    assert hit.count == 10
     assert fake.requests == []
     assert schedule_calls == [("59", "2026-10-21")]
 

@@ -9,6 +9,7 @@ import pytest
 
 from stpt_mcp.config import Settings
 from stpt_mcp.network import NetworkIndex
+from stpt_mcp.providers.schedule import Timetable, load_timetable
 from stpt_mcp.service import TransitService
 from tests.support import (
     FakeSTPT,
@@ -23,6 +24,11 @@ from tests.support import (
 @pytest.fixture(scope="session")
 def network() -> NetworkIndex:
     return NetworkIndex()
+
+
+@pytest.fixture(scope="session")
+def timetable() -> Timetable:
+    return load_timetable()
 
 
 @pytest.fixture
@@ -43,6 +49,7 @@ def settings() -> Settings:
 @pytest.fixture
 async def service_factory(
     network: NetworkIndex,
+    timetable: Timetable,
     clock: MutableClock,
 ) -> AsyncIterator[ServiceFactory]:
     created: list[TransitService] = []
@@ -52,6 +59,7 @@ async def service_factory(
         settings: Settings | None = None,
         fake: FakeSTPT | None = None,
         sleep: Callable[[float], Awaitable[None]] | None = None,
+        timetable_override: Timetable | None = None,
     ) -> tuple[TransitService, FakeSTPT]:
         resolved_settings = settings or make_test_settings()
         resolved_fake = fake or seed_fake_stpt(FakeSTPT())
@@ -63,6 +71,7 @@ async def service_factory(
             resolved_fake,
             clock,
             network=network,
+            timetable=timetable_override or timetable,
             **kwargs,
         )
         await service.start()

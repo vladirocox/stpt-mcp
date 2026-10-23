@@ -22,6 +22,7 @@ from stpt_mcp.models import (
     DataSource,
     Direction,
     ErrorInfo,
+    Freshness,
     Provenance,
     RoutesResult,
     ServiceStatus,
@@ -43,7 +44,7 @@ from stpt_mcp.providers.base import (
     VehicleRecord,
 )
 from stpt_mcp.providers.live import LiveArrivalsProvider
-from stpt_mcp.providers.schedule import ScheduleProvider
+from stpt_mcp.providers.schedule import ScheduleProvider, Timetable
 from stpt_mcp.providers.vehicles import VehiclesProvider
 from stpt_mcp.upstream import UpstreamClient
 
@@ -105,6 +106,7 @@ class TransitService:
         settings: Settings,
         *,
         network: NetworkIndex | None = None,
+        timetable: Timetable | None = None,
         upstream: UpstreamClient | None = None,
         clock: Callable[[], float] = time.monotonic,
         wall_clock: Callable[[], datetime] | None = None,
@@ -115,6 +117,7 @@ class TransitService:
         self._clock = clock
         self._wall_clock = wall_clock or (lambda: datetime.now(UTC))
         self._upstream = upstream
+        self._timetable = timetable
         self._live: LiveArrivalsProvider | None = None
         self._schedule: ScheduleProvider | None = None
         self._alerts: AlertsProvider | None = None
@@ -164,13 +167,7 @@ class TransitService:
         if self._upstream is None:
             self._upstream = UpstreamClient(self.settings, wall_clock=self._utc_now)
         self._live = LiveArrivalsProvider(self._upstream, self.settings, self.network)
-        self._schedule = ScheduleProvider(
-            self._upstream,
-            self.settings,
-            self.network,
-            clock=self._clock,
-            wall_clock=self._utc_now,
-        )
+        self._schedule = ScheduleProvider(self.settings, self.network, self._timetable)
         self._alerts = AlertsProvider(self._upstream, self.settings, self.network)
         self._vehicles = VehiclesProvider(self._upstream, self.settings, self.network)
         self._started_at = self._utc_now()
@@ -181,8 +178,6 @@ class TransitService:
             return
         self._closed = True
         self._ready = False
-        if self._schedule is not None:
-            await self._schedule.close()
         for cache in (
             self._arrivals_cache,
             self._schedule_cache,
@@ -333,16 +328,17 @@ class TransitService:
             return _arrival_error(stop.stop_id, stop.name, exc, line)
         snapshot = result.value
         now = self._utc_now()
+        is_stale = snapshot.stale or result.state is CacheState.STALE
         arrivals, filtered = self._materialize_arrivals(
             snapshot,
             now=now,
             line=canonical_line,
             limit=limit,
+            stale=is_stale,
         )
         warnings = list(snapshot.warnings)
         if result.state is CacheState.STALE:
             warnings.append("Served last-known-good arrivals because a refresh failed.")
-        is_stale = snapshot.stale or result.state is CacheState.STALE
         status = Status.OK
         error: StptError | None = None
         if result.state is CacheState.STALE:
@@ -368,6 +364,11 @@ class TransitService:
             fetched_at=snapshot.fetched_at,
             observed_at=observed_at,
             is_stale=is_stale,
+            freshness=(
+                Freshness.FRESH
+                if snapshot.source is DataSource.LIVE and observed_at is not None
+                else Freshness.UNVERIFIED
+            ),
             data_age_seconds=data_age,
             fallback_reason=snapshot.fallback_reason,
             warnings=_unique(warnings),
@@ -395,8 +396,16 @@ class TransitService:
         except StptError as exc:
             live_error = exc
 
-        live_is_stale = live_result is not None and bool(live_result.value) and live_result.stale
-        if live_result is not None and live_result.value and not live_result.stale:
+        has_predictions = live_result is not None and bool(live_result.value)
+        # Live is used only when its freshness was verified against the real
+        # clock: not stale, and with an observation time derived from the feed.
+        live_is_fresh = (
+            live_result is not None
+            and has_predictions
+            and not live_result.stale
+            and live_result.observed_at is not None
+        )
+        if live_result is not None and live_is_fresh:
             live_partial_error = None
             partial = not live_result.complete
             if partial:
@@ -417,9 +426,15 @@ class TransitService:
             )
 
         warnings: list[str] = []
-        if live_result is not None and live_result.value and live_result.stale:
+        if live_result is not None and has_predictions and live_result.stale:
             fallback_reason = "live_predictions_stale"
             warnings.append("Live predictions are stale; trying the schedule fallback.")
+            warnings.extend(live_result.warnings)
+        elif live_result is not None and has_predictions:
+            fallback_reason = "live_predictions_unverified"
+            warnings.append(
+                "Live predictions could not be verified as current; trying the schedule fallback."
+            )
             warnings.extend(live_result.warnings)
         elif live_result is not None:
             fallback_reason = "live_returned_no_departures"
@@ -435,13 +450,13 @@ class TransitService:
         try:
             schedule = await self._get_schedule_cached(stop, service_date)
         except StptError as schedule_error:
-            if live_is_stale and live_result is not None:
-                # The feed answered but its own clock is inconsistent, so these
-                # predictions are not live. Showing them as clearly stale is
-                # more useful than failing the whole request, but they must
-                # never be labelled live or carry an invented observation time.
+            if live_result is not None and has_predictions:
+                # The feed answered, but its predictions failed the freshness
+                # check. Their minutes may be frozen for hours, so they are
+                # withheld: anchored to now they would look like real arrivals.
+                stale = live_result.stale
                 return ArrivalsSnapshot(
-                    records=tuple(_record_from_live(arrival) for arrival in live_result.value),
+                    records=(),
                     source=DataSource.LIVE,
                     fetched_at=live_result.fetched_at,
                     observed_at=None,
@@ -450,16 +465,22 @@ class TransitService:
                         _unique(
                             (
                                 *warnings,
-                                "The schedule fallback is unavailable; stale predictions are "
-                                "shown for reference only.",
+                                schedule_error.message,
+                                "The schedule fallback is unavailable; the unverified live "
+                                "predictions were withheld.",
                             )
                         )
                     ),
                     partial=True,
-                    stale=True,
+                    stale=stale,
                     error=StptError(
                         ErrorCode.DATA_STALE,
-                        "Live predictions are stale and the schedule fallback is unavailable.",
+                        (
+                            "Live predictions are stale and the schedule fallback is unavailable."
+                            if stale
+                            else "Live predictions could not be verified as current and the "
+                            "schedule fallback is unavailable."
+                        ),
                         retryable=True,
                         upstream="live+sched",
                     ),
@@ -477,7 +498,8 @@ class TransitService:
         partial = schedule.partial or live_error is not None
         if live_result is not None and not live_result.complete:
             partial = True
-        error: StptError | None = schedule.error or live_error
+        # A live outage is retryable and more useful to report than a timetable gap.
+        error: StptError | None = live_error or schedule.error
         if live_result is not None and not live_result.complete and error is None:
             error = StptError(
                 ErrorCode.UPSTREAM_INVALID_RESPONSE,
@@ -485,8 +507,6 @@ class TransitService:
                 retryable=True,
                 upstream="live arrivals",
             )
-        if schedule.stale:
-            warnings.append("Schedule fallback used cached page content.")
         records = tuple(_record_from_schedule(departure) for departure in schedule.departures)
         return ArrivalsSnapshot(
             records=records,
@@ -531,29 +551,21 @@ class TransitService:
         if schedule_provider is None:
             raise StptError(ErrorCode.NOT_READY, "Schedule provider is not ready.", retryable=True)
         provider = await schedule_provider.fetch_stop_schedule(stop, service_date)
-        error = None
-        partial = not provider.complete or provider.stale
-        if not provider.complete:
-            error = StptError(
-                ErrorCode.SCHEDULE_UNAVAILABLE,
-                "The schedule fallback is incomplete because some pages were unavailable.",
-                retryable=True,
-                upstream="schedule",
-            )
-        elif provider.stale:
-            error = StptError(
-                ErrorCode.SCHEDULE_UNAVAILABLE,
-                "The schedule fallback used stale cached page content.",
-                retryable=True,
-                upstream="schedule",
-            )
         return ScheduleSnapshot(
             departures=provider.value,
             fetched_at=provider.fetched_at,
             warnings=provider.warnings,
-            partial=partial,
-            stale=provider.stale,
-            error=error,
+            partial=not provider.complete,
+            error=(
+                None
+                if provider.complete
+                else StptError(
+                    ErrorCode.SCHEDULE_UNAVAILABLE,
+                    "The bundled timetable has ended; the schedule fallback is incomplete.",
+                    retryable=False,
+                    upstream="schedule",
+                )
+            ),
         )
 
     def _materialize_arrivals(
@@ -563,6 +575,7 @@ class TransitService:
         now: datetime,
         line: str | None,
         limit: int,
+        stale: bool,
     ) -> tuple[list[Arrival], str | None]:
         arrivals: list[Arrival] = []
         wanted = line.casefold() if line else None
@@ -572,12 +585,15 @@ class TransitService:
             if record.departure_at is None:
                 continue
             anchor = record.departure_at
+            delta_minutes = (anchor - now).total_seconds() / 60
             if not record.live:
-                while anchor <= now:
-                    anchor += timedelta(days=1)
-                delta_minutes = (anchor - now).total_seconds() / 60
-                if delta_minutes > self.settings.schedule_lookahead_minutes:
+                # Schedule departures are absolute instants across adjacent
+                # service days; keep only those inside the lookahead window.
+                if not 0 <= delta_minutes <= self.settings.schedule_lookahead_minutes:
                     continue
+            elif delta_minutes < -1:
+                # A cached prediction more than a minute past is gone, not "due now".
+                continue
             remaining_minutes = (anchor - now).total_seconds() / 60
             eta = max(0, math.ceil(remaining_minutes - 1e-9))
             arrivals.append(
@@ -588,7 +604,7 @@ class TransitService:
                     mode=record.mode,
                     eta_minutes=eta,
                     arrival_time=anchor.astimezone(self._zone).strftime("%H:%M"),
-                    live=record.live and not snapshot.stale,
+                    live=record.live and not stale,
                     vehicle_id=record.vehicle_id,
                     shape_id=record.shape_id,
                 )
@@ -751,16 +767,25 @@ class TransitService:
             warnings.append("Served last-known-good vehicle positions because a refresh failed.")
         vehicles: list[Vehicle] = []
         stale_count = 0
+        future_count = 0
         wanted = canonical_line.casefold() if canonical_line else None
         for record in snapshot.vehicles:
             if wanted is not None and record.line.casefold() != wanted:
                 continue
-            age = (
-                max(0.0, (now - record.observed_at).total_seconds())
+            raw_age = (
+                (now - record.observed_at).total_seconds()
                 if record.observed_at is not None
                 else None
             )
-            is_stale = age is None or age > self.settings.vehicle_stale_after_seconds
+            age = max(0.0, raw_age) if raw_age is not None else None
+            # A timestamp ahead of the real clock is a skewed upstream clock,
+            # not a fresh fix, so it cannot count as verified.
+            in_future = (
+                raw_age is not None and -raw_age > self.settings.live_clock_skew_tolerance_seconds
+            )
+            if in_future:
+                future_count += 1
+            is_stale = age is None or age > self.settings.vehicle_stale_after_seconds or in_future
             if is_stale:
                 stale_count += 1
             vehicles.append(
@@ -783,10 +808,14 @@ class TransitService:
                     is_stale=is_stale,
                 )
             )
-        if stale_count:
+        if future_count:
             warnings.append(
-                f"{stale_count} vehicle position(s) are older than "
-                f"{self.settings.vehicle_stale_after_seconds:.0f}s."
+                f"{future_count} vehicle position(s) carry a timestamp ahead of the real clock."
+            )
+        if stale_count - future_count:
+            warnings.append(
+                f"{stale_count - future_count} vehicle position(s) are older than "
+                f"{self.settings.vehicle_stale_after_seconds:.0f}s or have no timestamp."
             )
         vehicles.sort(key=lambda vehicle: (_natural_line_key(vehicle.line), vehicle.vehicle_id))
         vehicles = vehicles[:limit]
@@ -808,7 +837,7 @@ class TransitService:
             status = Status.PARTIAL
             error = StptError(
                 ErrorCode.DATA_STALE,
-                "Some vehicle positions are older than the freshness threshold.",
+                "Some vehicle positions failed the freshness check against the real clock.",
                 retryable=True,
                 upstream="vehicles",
             )
@@ -825,6 +854,7 @@ class TransitService:
             fetched_at=snapshot.fetched_at,
             observed_at=observed_at,
             is_stale=envelope_stale,
+            freshness=Freshness.FRESH if vehicles else Freshness.UNVERIFIED,
             data_age_seconds=data_age,
             warnings=_unique(warnings),
         )
@@ -857,10 +887,9 @@ class TransitService:
         caches: list[CacheStats] = [
             self._arrivals_cache.stats(),
             self._schedule_cache.stats(),
+            self._alerts_cache.stats(),
+            self._vehicles_cache.stats(),
         ]
-        if self._schedule is not None:
-            caches.append(self._schedule.page_cache.stats())
-        caches.extend([self._alerts_cache.stats(), self._vehicles_cache.stats()])
         caches.sort(key=lambda stats: stats.name)
         return ServiceStatus(
             status=network_status,
@@ -875,6 +904,7 @@ class TransitService:
             network_generated_at=self.network.snapshot.generated_at,
             network_service_range=self.network.snapshot.service_range,
             caches=caches,
+            live_feed=self._live.feed_status(now) if self._live is not None else None,
         )
 
 

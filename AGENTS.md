@@ -14,6 +14,22 @@ Read `LESSONS.md` before starting new work in this project.
   documentation-only: a link, a short description, and shared artwork.
 - CI and the default test suite must never contact live STPT services.
 - Do not remove provenance, stale-data signalling, or structured errors.
+- Freshness invariant, on every tool: data is labelled live (`Arrival.live`,
+  `provenance.freshness: "fresh"`) only after its upstream observation time was
+  compared with the real clock and passed. Without a reference clock the result
+  is `unverified`, never `fresh`. `Provenance.freshness` defaults to
+  `unverified`; `is_stale: true` forces `stale`.
+- A live arrivals feed is fresh only if its implied clock is within tolerance
+  **and** has not stood still for longer than the tolerance across fetches of
+  that stop. A clock that jumps by a different amount than real time passed
+  keeps the stop suspect (unverified) until it is seen to advance with real
+  time; so does a first sight while another stop was stale in the last 10
+  minutes, or a non-fresh stop seen again after 12 hours. Stale or unverified predictions
+  are never returned as arrivals, not even flagged; with no fallback the list is
+  empty and the error is `data_stale`.
+- The schedule fallback performs no network I/O. It reads
+  `src/stpt_mcp/data/timetable.json`, generated from the same GTFS feed version
+  as `network.json`.
 - Preserve these cache invariants:
   - concurrent requests for one stop share a single upstream live fetch;
   - a schedule refresh is single-flight per stop and service date;
@@ -68,6 +84,9 @@ uv run stpt-mcp token
 - `src/stpt_mcp/server.py` — MCP tool definitions and lifespan.
 - `src/stpt_mcp/http_app.py` — HTTP transport, security and health endpoint.
 - `src/stpt_mcp/data/network.json` — offline GTFS-derived network snapshot.
+- `src/stpt_mcp/data/timetable.json` — offline GTFS timetable (calendar and trip
+  departure minutes) for the schedule fallback; same feed version as the network
+  snapshot, valid until its `service_range.end`.
 - `deploy/` — copy-paste Caddy, systemd, and environment examples.
 - `docs/` — architecture, data sources, tools, configuration, testing,
   deployment, public HTTPS, operations, security, decisions, plan, and execution
@@ -77,6 +96,9 @@ uv run stpt-mcp token
 - `.github/workflows/publish.yml` — on a published GitHub release, uploads the
   wheel and sdist to PyPI (trusted publishing) and attaches them to the release.
 - `scripts/generate_network_snapshot.py` — manual snapshot refresh; never in CI.
+- `scripts/generate_timetable.py` — manual timetable refresh from the official GTFS
+  zip (`--gtfs-zip`); refuses a feed that does not match `network.json`. Never in
+  CI. Regenerate both files together before the service range ends.
 
 ## Engineering conventions
 

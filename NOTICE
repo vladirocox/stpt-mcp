@@ -9,14 +9,17 @@ STPT:
 - Live arrivals: `https://live.stpt.ro/proxy-smtt-cache.php`
 - Alerts: `https://live.stpt.ro/proxy-alerts.php`
 - Vehicles: `https://live.stpt.ro/gtfs-vehicles.php`
-- Schedule: `https://smtt.ro/linie-transport-public-*`
 - GTFS-derived network snapshot: `https://live.stpt.ro/gtfs-data/`
+- GTFS timetable: `https://smtt.ro/transit/gtfs/maps/smtt-timisoara-ro.zip`
+  (mirrored by the Mobility Database as feed `mdb-2868`)
 
 The bundled `network.json` is a derived snapshot of STPT's public GTFS data. It
 contains stop codes, stop names, coordinates, route membership, and stop
-sequences, together with feed metadata. It is included only to make stop/route
-discovery work when the upstream network is unavailable. It is refreshed by the
-project maintainers, not downloaded at runtime.
+sequences, together with feed metadata. The bundled `timetable.json` is derived
+from the same GTFS feed and contains its service calendar and trip departure
+times. They are included so stop/route discovery and the schedule fallback work
+when the upstream services are unavailable. They are refreshed by the project
+maintainers, not downloaded at runtime.
 
 STPT and its data remain the property of their respective owners. No warranty
 is made about the accuracy, completeness, or availability of upstream data.
