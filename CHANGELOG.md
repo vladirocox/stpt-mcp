@@ -4,6 +4,29 @@ All notable changes are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [0.3.4] - 2026-10-23
+
+### Added
+
+- A `Publish` workflow (`.github/workflows/publish.yml`). Publishing a GitHub
+  release checks that the tag matches the package version, builds the wheel
+  and sdist, uploads them to PyPI through trusted publishing, and attaches
+  them to the release. No PyPI token is stored in the repository.
+
+### Changed
+
+- Bumped the package version to 0.3.4 and refreshed the documented release
+  artifact references.
+
+### Documentation
+
+- The author is now named as Vlad Ohai in `LICENSE`, the package metadata in
+  `pyproject.toml`, and a new "Author" section in the README.
+- The README documents installing from PyPI with `pip install stpt-mcp` or
+  `uvx stpt-mcp`, and an MCP client configuration that uses `uvx`.
+- README links and the screenshot now use absolute GitHub URLs, so they also
+  work on the PyPI project page.
+
 ## [0.3.3] - 2026-10-21
 
 ### Added

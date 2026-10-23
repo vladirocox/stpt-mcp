@@ -13,7 +13,7 @@ offline stop/route index to MCP clients over **stdio** or **Streamable HTTP**.
 
 ## In action
 
-![An assistant answering "when does the 14 get to Piata Marasti?" with the stpt MCP tools](assets/chat-arrivals.png)
+![An assistant answering "when does the 14 get to Piata Marasti?" with the stpt MCP tools](https://raw.githubusercontent.com/vladirocox/stpt-mcp/main/assets/chat-arrivals.png)
 
 Ask in plain language. The assistant calls `search_stops` to resolve the stop,
 then `get_arrivals` for the departures, and answers with the next bus. The same
@@ -44,6 +44,20 @@ own.
 
 ## Install
 
+From [PyPI](https://pypi.org/project/stpt-mcp/), with one command:
+
+```bash
+pip install stpt-mcp
+stpt-mcp --version
+```
+
+Or run it without installing anything permanently, using
+[uv](https://docs.astral.sh/uv/):
+
+```bash
+uvx stpt-mcp --version
+```
+
 From a checkout:
 
 ```bash
@@ -56,7 +70,7 @@ Or from a wheel/sdist:
 ```bash
 python -m venv .venv
 . .venv/bin/activate
-pip install dist/stpt_mcp-0.3.3-py3-none-any.whl
+pip install dist/stpt_mcp-0.3.4-py3-none-any.whl
 stpt-mcp --version
 ```
 
@@ -69,6 +83,20 @@ stdio.
 
 ```bash
 uv run stpt-mcp serve --transport stdio
+```
+
+The simplest MCP client configuration lets `uvx` fetch the package from PyPI
+on first use:
+
+```json
+{
+  "mcpServers": {
+    "stpt": {
+      "command": "uvx",
+      "args": ["stpt-mcp", "serve", "--transport", "stdio"]
+    }
+  }
+}
 ```
 
 A minimal MCP client configuration using an installed console script:
@@ -135,7 +163,7 @@ stpt-mcp serve --transport http
 ```
 
 Claude's custom connector can then use **Sign in now** with **Register
-automatically**. See [OAuth sign-in](docs/OAUTH.md) for the reverse-proxy paths
+automatically**. See [OAuth sign-in](https://github.com/vladirocox/stpt-mcp/blob/main/docs/OAUTH.md) for the reverse-proxy paths
 and connector steps.
 
 Minimal client configuration:
@@ -153,9 +181,9 @@ Minimal client configuration:
 HTTP is bound to `127.0.0.1` by default. Binding elsewhere requires an explicit
 `STPT_MCP_ALLOWED_HOSTS` allowlist. If you expose the server beyond localhost,
 also set `STPT_MCP_AUTH_TOKEN` and terminate TLS at a reverse proxy. For a
-complete public deployment, see [Public HTTPS](docs/PUBLIC_HTTPS.md),
-[OAuth sign-in](docs/OAUTH.md), [Deployment](docs/DEPLOYMENT.md), and
-[Security](docs/SECURITY.md).
+complete public deployment, see [Public HTTPS](https://github.com/vladirocox/stpt-mcp/blob/main/docs/PUBLIC_HTTPS.md),
+[OAuth sign-in](https://github.com/vladirocox/stpt-mcp/blob/main/docs/OAUTH.md), [Deployment](https://github.com/vladirocox/stpt-mcp/blob/main/docs/DEPLOYMENT.md), and
+[Security](https://github.com/vladirocox/stpt-mcp/blob/main/docs/SECURITY.md).
 
 ## Tools
 
@@ -200,7 +228,7 @@ Every result is a typed envelope. Data-source problems are returned as
 ```
 
 `arrivals` is abbreviated above. Full schemas are generated from the Pydantic
-models and exposed through MCP. See [Tools](docs/TOOLS.md) for arguments,
+models and exposed through MCP. See [Tools](https://github.com/vladirocox/stpt-mcp/blob/main/docs/TOOLS.md) for arguments,
 semantics, error codes, and more examples.
 
 ## Configuration
@@ -222,7 +250,7 @@ CLI flags. Defaults are safe for local use.
 | `STPT_MCP_MAX_CONCURRENT_HTTP_REQUESTS` | `100` | HTTP concurrency cap. |
 
 TTLs, stale windows, upstream timeouts, retry policy, and cache bounds are also
-configurable. See [Configuration](docs/CONFIGURATION.md) for the complete table.
+configurable. See [Configuration](https://github.com/vladirocox/stpt-mcp/blob/main/docs/CONFIGURATION.md) for the complete table.
 
 ## How data selection works
 
@@ -261,8 +289,8 @@ An opt-in live smoke test is available:
 STPT_MCP_RUN_NETWORK_TESTS=1 uv run pytest -m network
 ```
 
-See [Testing](docs/TESTING.md), [Architecture](docs/ARCHITECTURE.md), and
-[Contributing](CONTRIBUTING.md).
+See [Testing](https://github.com/vladirocox/stpt-mcp/blob/main/docs/TESTING.md), [Architecture](https://github.com/vladirocox/stpt-mcp/blob/main/docs/ARCHITECTURE.md), and
+[Contributing](https://github.com/vladirocox/stpt-mcp/blob/main/CONTRIBUTING.md).
 
 ## Related projects
 
@@ -290,8 +318,14 @@ All three are unofficial and are not affiliated with STPT.
   to sign in again. It is not a multi-user identity provider.
 - Live arrivals do not carry an upstream observation timestamp.
 
+## Author
+
+Created and maintained by **Vlad Ohai**
+([GitHub](https://github.com/vladirocox)).
+
 ## License and attribution
 
-MIT licensed. STPT data remains the property of its respective owners. See
-[LICENSE](LICENSE) and [NOTICE](NOTICE). OpenStreetMap-derived coordinates, if
-present, are © OpenStreetMap contributors under the ODbL.
+MIT licensed, © 2026 Vlad Ohai. STPT data remains the property of its
+respective owners. See [LICENSE](https://github.com/vladirocox/stpt-mcp/blob/main/LICENSE) and [NOTICE](https://github.com/vladirocox/stpt-mcp/blob/main/NOTICE).
+OpenStreetMap-derived coordinates, if present, are © OpenStreetMap contributors
+under the ODbL.

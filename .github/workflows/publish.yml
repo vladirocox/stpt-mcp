@@ -1,0 +1,97 @@
+name: Publish
+
+# Publishing a GitHub release builds the wheel and sdist, uploads them to PyPI
+# through trusted publishing (no API token is stored in the repository), and
+# attaches the same files to the release.
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-${{ github.event.release.tag_name }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: build distributions
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install uv and Python
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: "0.13.4"
+          python-version: "3.12"
+
+      - name: Check that the tag matches the package version
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          python - <<'PY'
+          import os, re, tomllib
+          tag = os.environ["TAG"]
+          with open("pyproject.toml", "rb") as handle:
+              project_version = tomllib.load(handle)["project"]["version"]
+          with open("src/stpt_mcp/__init__.py", encoding="utf-8") as handle:
+              match = re.search(r'__version__ = "([^"]+)"', handle.read())
+          module_version = match.group(1) if match else None
+          if tag != f"v{project_version}" or module_version != project_version:
+              raise SystemExit(
+                  f"tag {tag!r} does not match pyproject {project_version!r} "
+                  f"and __init__ {module_version!r}"
+              )
+          print(f"{tag} matches the package version")
+          PY
+
+      - name: Build distributions
+        run: uv build
+
+      - name: Check distribution metadata
+        run: uvx twine check --strict dist/*
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: distributions
+          path: dist/*
+          if-no-files-found: error
+
+  pypi:
+    name: publish to PyPI
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/project/stpt-mcp/
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v7
+        with:
+          name: distributions
+          path: dist
+
+      - name: Upload to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+
+  release-assets:
+    name: attach files to the release
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v7
+        with:
+          name: distributions
+          path: dist
+
+      - name: Upload wheel and sdist
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.release.tag_name }}
+        run: gh release upload "$TAG" dist/* --clobber --repo "$GITHUB_REPOSITORY"

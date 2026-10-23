@@ -68,14 +68,23 @@ Record actual test counts, coverage, and tool output summaries.
 - [ ] Commit the release state.
 - [ ] Create an annotated tag `v<version>`.
 - [ ] Push the branch and tag.
-- [ ] Create a GitHub release with the changelog section.
-- [ ] Verify the remote commit, tag, and CI result.
-- [ ] Build and attach artifacts only if the release process requires it.
+- [ ] Create a GitHub release with the changelog section. Publishing it runs
+      `.github/workflows/publish.yml`, which checks that the tag matches the
+      package version, uploads the wheel and sdist to PyPI through trusted
+      publishing, and attaches them to the release.
+- [ ] Verify the remote commit, tag, CI result, and `Publish` workflow result.
 - [ ] Announce with the unofficial/disclaimer wording.
+
+PyPI trusted publishing is configured once on PyPI for project `stpt-mcp`,
+owner `vladirocox`, repository `stpt-mcp`, workflow `publish.yml`, and
+environment `pypi`. A version can be uploaded to PyPI only once; to fix a bad
+release, publish a new version.
 
 ## 8. Post-release
 
-- [ ] Verify installation from the published artifact.
+- [ ] Verify installation from PyPI in a fresh virtual environment:
+      `pip install stpt-mcp==<version>` and `stpt-mcp --version`.
+- [ ] Verify installation from the release assets.
 - [ ] Watch CI and issues for regressions.
 - [ ] Open follow-up issues for known limitations.
 - [ ] Update the execution log with publication evidence.

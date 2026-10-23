@@ -52,7 +52,7 @@ curl -fsS http://127.0.0.1:8000/healthz
 Expected:
 
 ```json
-{"status":"ok","service":"stpt-mcp","version":"0.3.3"}
+{"status":"ok","service":"stpt-mcp","version":"0.3.4"}
 ```
 
 ## Docker
@@ -63,10 +63,10 @@ The image runs as a non-root user and includes a health check.
 Build and run:
 
 ```bash
-docker build -t stpt-mcp:0.3.3 .
+docker build -t stpt-mcp:0.3.4 .
 docker run --rm -p 127.0.0.1:8000:8000 \
   -e STPT_MCP_ALLOWED_HOSTS=localhost:8000,127.0.0.1:8000 \
-  stpt-mcp:0.3.3
+  stpt-mcp:0.3.4
 ```
 
 The image sets:
@@ -84,7 +84,7 @@ Add authentication before exposing it beyond your machine:
 docker run --rm -p 127.0.0.1:8000:8000 \
   -e STPT_MCP_ALLOWED_HOSTS=localhost:8000,127.0.0.1:8000 \
   -e STPT_MCP_AUTH_TOKEN="$(stpt-mcp token)" \
-  stpt-mcp:0.3.3
+  stpt-mcp:0.3.4
 ```
 
 The `stpt-mcp token` command prints a new 256-bit URL-safe token and exits.
