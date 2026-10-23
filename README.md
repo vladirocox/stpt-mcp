@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="https://raw.githubusercontent.com/vladirocox/stpt-mcp/main/assets/logo.png" alt="STPT MCP logo: a bus in a round sign with live-signal waves" width="120">
+</p>
+
 # STPT MCP
 
 [![CI](https://github.com/vladirocox/stpt-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/vladirocox/stpt-mcp/actions/workflows/ci.yml)

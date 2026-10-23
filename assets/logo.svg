@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="480" height="480" viewBox="0 0 480 480" role="img" aria-label="STPT MCP logo">
+  <title>STPT MCP</title>
+  <rect width="480" height="480" fill="#5B34D1"/>
+  <g transform="translate(240 240) scale(1.45) translate(-238 -150)">
+    <path d="M320.5 141.1 A104 104 0 0 0 246.9 67.5" fill="none" stroke="#FFFFFF" stroke-width="16" stroke-linecap="round"/>
+    <path d="M355.2 131.8 A140 140 0 0 0 256.2 32.8" fill="none" stroke="#FFFFFF" stroke-width="16" stroke-linecap="round" opacity="0.6"/>
+    <circle cx="220" cy="168" r="72" fill="#FFFFFF"/>
+    <rect x="190" y="136" width="60" height="68" rx="12" fill="#5B34D1"/>
+    <rect x="199" y="145" width="42" height="26" rx="5" fill="#FFFFFF"/>
+    <circle cx="204" cy="188" r="5" fill="#FFFFFF"/>
+    <circle cx="236" cy="188" r="5" fill="#FFFFFF"/>
+  </g>
+</svg>

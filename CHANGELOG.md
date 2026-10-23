@@ -4,6 +4,13 @@ All notable changes are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- Project logo: `assets/logo.svg` and a 512 px `assets/logo.png` (a bus in a
+  round sign with live-signal waves, white on violet). It is original artwork,
+  not STPT's logo, and is shown at the top of the README.
 ## [0.3.7] - 2026-10-23
 
 ### Fixed
